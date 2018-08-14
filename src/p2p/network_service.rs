@@ -4,20 +4,35 @@ use futures::Stream;
 use futures::Future;
 use tokio;
 use tokio::net::{TcpListener, TcpStream};
-use p2p::peer::{Shared, Peer, Lines};
+use p2p::peer::{Shared, Peer};
+use p2p::codec::Lines;
 
 pub struct NetworkService {
+    ///
+    /// The original address on which a peer should be listening on
     address: &'static str,
 }
 
+///
+/// # Network Service
+///
+/// Starts a blocking Tokio runtime which listens for incoming
+/// connections on a particular socket. Each connection
+/// is considered to be a separate peer to which the network service is connected to.
 impl NetworkService {
 
+    ///
+    /// Create a new network service.
+    ///
+    /// * `address` - The address on which the network service should listen for incoming connections.
     pub fn new(address: &'static str) -> NetworkService {
         NetworkService {
             address
         }
     }
 
+    ///
+    /// Start to listen on the configured port.
     pub fn listen(&self) {
         let addr = self.address.parse().unwrap();
 
@@ -68,6 +83,7 @@ impl NetworkService {
     }
 }
 
+///
 /// Spawn a task to manage the socket.
 ///
 /// This will read the first line from the socket to identify the client, then
