@@ -1,4 +1,4 @@
-use std::net::{SocketAddr, TcpStream, TcpListener};
+use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
 use std::thread;
 use std::collections::HashMap;
 use std::io::Write;
@@ -49,8 +49,7 @@ impl Node {
         match stream {
             Ok(mut stream) => {
                 println!("Successfully connected to {:?}", stream.peer_addr());
-                stream.write(&"hello".to_string().into_bytes());
-                stream.flush();
+                Node::handle_outgoing_connection(&mut stream);
                 self.peers.insert(connect_address, stream);
             },
             Err(e) => {
@@ -60,11 +59,35 @@ impl Node {
     }
 
     fn handle_incoming_connection(stream: &mut TcpStream) {
-        println!("handling connection");
+        println!("handling incoming connection");
 
         let mut buffer_str = String::new();
         stream.read_to_string(&mut buffer_str);
 
         println!("Read string from incoming connection: {:?}", buffer_str);
+
+        // send some data back
+        let mut streamclone = stream.try_clone().unwrap();
+        streamclone.write_all(&"hello from server".to_string().into_bytes());
+        streamclone.flush();
+        streamclone.shutdown(Shutdown::Read);
+
+
+    }
+
+    fn handle_outgoing_connection(stream: &mut TcpStream) {
+        println!("handling outgoing connection");
+
+        stream.write_all(&"hello".to_string().into_bytes());
+        stream.flush();
+        stream.shutdown(Shutdown::Write);
+
+        println!("flushed written data");
+
+        // wait for some incoming data on the same stream
+        let mut buffer_str = String::new();
+        stream.try_clone().unwrap().read_to_string(&mut buffer_str);
+
+        println!("reading string from outgoing stream: {:?}", buffer_str);
     }
 }
