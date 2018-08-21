@@ -6,5 +6,12 @@ authors = ["Raphael Matile <raphael.matile@gmail.com>"]
 [dependencies]
 bytes = "0.4.9"
 env_logger = "0.5.12"
-futures = "0.1.23"
-tokio = "0.1"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+futures = "0.1"
+tokio-core = "0.1"
+tokio-timer = "0.1"
+uuid = { version = "0.4", features = ["serde", "v4"] }
+getopts = "0.2"
+rand = "0.3"
