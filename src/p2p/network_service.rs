@@ -1,16 +1,27 @@
 use std::sync::{Arc, Mutex};
+use std::net::SocketAddr;
+use std::str::FromStr;
+use std::result::Result;
 use futures::future::{self, Either};
+use futures::sync::mpsc;
 use futures::Stream;
 use futures::Future;
 use tokio;
+use tokio::runtime::Runtime;
 use tokio::net::{TcpListener, TcpStream};
 use p2p::peer::{Shared, Peer};
 use p2p::codec::Lines;
+use bytes::Bytes;
+use p2p::thread::ThreadPool;
 
 pub struct NetworkService {
     ///
     /// The original address on which a peer should be listening on
     address: &'static str,
+
+    state: Arc<Mutex<Shared>>,
+
+    thread_pool: ThreadPool,
 }
 
 ///
@@ -20,14 +31,24 @@ pub struct NetworkService {
 /// connections on a particular socket. Each connection
 /// is considered to be a separate peer to which the network service is connected to.
 impl NetworkService {
-
     ///
     /// Create a new network service.
     ///
     /// * `address` - The address on which the network service should listen for incoming connections.
     pub fn new(address: &'static str) -> NetworkService {
+        // Create the shared state. This is how all the peers communicate.
+        //
+        // The server task will hold a handle to this. For every new client, the
+        // `state` handle is cloned and passed into the task that processes the
+        // client connection.
+        let state = Arc::new(Mutex::new(Shared::new()));
+
+        let thread_pool = ThreadPool::new(4);
+
         NetworkService {
-            address
+            address,
+            state,
+            thread_pool,
         }
     }
 
@@ -47,15 +68,17 @@ impl NetworkService {
         // The server task will hold a handle to this. For every new client, the
         // `state` handle is cloned and passed into the task that processes the
         // client connection.
-        let state = Arc::new(Mutex::new(Shared::new()));
+        let state = self.state.clone();
 
         // The server task asynchronously iterates over and processes each
         // incoming connection.
-        let server = listener.incoming().for_each(move |socket| {
-            // Spawn a task to process the connection
-            process(socket, state.clone());
-            Ok(())
-        })
+        let server = listener
+            .incoming()
+            .for_each(move |socket| {
+                // Spawn a task to process the connection
+                process(socket, state.clone());
+                Ok(())
+            })
             .map_err(|err| {
                 // All tasks must have an `Error` type of `()`. This forces error
                 // handling and helps avoid silencing failures.
@@ -79,7 +102,51 @@ impl NetworkService {
         //
         // In our example, we have not defined a shutdown strategy, so this will
         // block until `ctrl-c` is pressed at the terminal.
-        tokio::run(server);
+        self.thread_pool.execute(move || {
+            tokio::run(server);
+        });
+    }
+
+    pub fn send(&self) {
+        let peers = &self.state.lock().unwrap().peers;
+
+        // Now, send the line to all other peers
+        for (addr, tx) in peers {
+            // The send only fails if the rx half has been dropped,
+            // however this is impossible as the `tx` half will be
+            // removed from the map before the `rx` is dropped.
+            let result = tx.unbounded_send(Bytes::from("Hello from send"));
+
+            match result {
+                Result::Ok(()) => println!("Sent message to peer at address {:?}", addr),
+                Result::Err(e) => println!("Failed to send message to peer at address {:?}. Error was {:?}", addr, e),
+            }
+        }
+    }
+
+    pub fn connect(&self, peer_address: &str) {
+        let socket_peer_address = SocketAddr::from_str(peer_address).unwrap();
+
+        let connect_future = TcpStream::connect(&socket_peer_address)
+            .map_err(|e| {
+                println!("connection failed error = {:?}", e);
+            })
+            .and_then(|stream| {
+                let addr = stream.peer_addr().unwrap();
+                //let (tx, rx) = mpsc::unbounded();
+
+                println!("Adding peer at address {:?}", addr);
+
+                // add peer to our list
+                //self.state.lock().unwrap().peers.insert(addr, tx);
+
+                future::ok(())
+            })
+            .map_err(|e| {
+                println!("Failed to connect. Error was {:?}", e)
+            });
+
+        tokio::spawn(connect_future);
     }
 }
 

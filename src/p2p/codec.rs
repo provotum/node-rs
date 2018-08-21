@@ -3,6 +3,29 @@ use tokio::net::{TcpStream};
 use tokio::prelude::*;
 use bytes::{BytesMut, BufMut};
 
+#[derive(Debug)]
+pub struct MessageStream {
+    /// The TCP socket to read to or write from.
+    pub socket: TcpStream,
+
+    /// Buffer used when reading from the socket. Data is not returned from this
+    /// buffer until an entire line has been read.
+    rd: BytesMut,
+
+    /// Buffer used to stage data before writing it to the socket.
+    wr: BytesMut
+}
+
+impl MessageStream {
+    /// Create a new `Lines` codec backed by the socket
+    pub fn new(socket: TcpStream) -> Self {
+        MessageStream {
+            socket,
+            rd: BytesMut::new(),
+            wr: BytesMut::new(),
+        }
+    }
+}
 
 /// Line based codec
 ///

@@ -48,7 +48,7 @@ type Rx = mpsc::UnboundedReceiver<Bytes>;
 /// iterating over the `peers` entries and sending a copy of the message on each
 /// `Tx`.
 pub struct Shared {
-    peers: HashMap<SocketAddr, Tx>,
+    pub peers: HashMap<SocketAddr, Tx>,
 }
 
 /// The state for each connected client.
@@ -202,7 +202,7 @@ impl Future for Peer {
 
                 // Now, send the line to all other peers
                 for (addr, tx) in &self.state.lock().unwrap().peers {
-                    // Don't send the message to ourselves
+                    // Don't send the message to peer from which message is received
                     if *addr != self.addr {
                         // The send only fails if the rx half has been dropped,
                         // however this is impossible as the `tx` half will be
