@@ -1,20 +1,14 @@
 extern crate futures;
 extern crate getopts;
 extern crate node;
-extern crate tokio_core;
-extern crate tokio_timer;
 
-use futures::Future;
+extern crate log;
+extern crate simple_logger;
+
 use node::p2p::node::Node;
-use std::{thread, time};
-use std::borrow::Borrow;
-use std::cell::RefCell;
 use std::env;
-use std::net::SocketAddr;
-use std::rc::Rc;
-use std::time::Duration;
 use std::vec::Vec;
-use tokio_core::reactor::Core;
+
 
 
 fn print_usage(program: &str, opts: &getopts::Options) {
@@ -23,6 +17,9 @@ fn print_usage(program: &str, opts: &getopts::Options) {
 }
 
 fn main() {
+    // init logger
+    simple_logger::init().unwrap();
+
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 

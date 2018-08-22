@@ -9,5 +9,14 @@ extern crate getopts;
 extern crate rand;
 extern crate uuid;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate log;
+extern crate simple_logger;
+
 pub mod p2p;
 pub mod protocol;
