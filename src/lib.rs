@@ -20,3 +20,4 @@ extern crate simple_logger;
 
 pub mod p2p;
 pub mod protocol;
+pub mod config;

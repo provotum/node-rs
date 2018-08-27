@@ -2,12 +2,14 @@ extern crate futures;
 extern crate getopts;
 extern crate node;
 
+#[macro_use]
 extern crate log;
 extern crate simple_logger;
 
 use node::p2p::node::Node;
 use std::env;
 use std::vec::Vec;
+use node::config::genesis::Genesis;
 
 
 
@@ -20,12 +22,15 @@ fn main() {
     // init logger
     simple_logger::init().unwrap();
 
+    // get configuration
+    let genesis = Genesis::new("genesis.json");
+
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
     let mut opts = getopts::Options::new();
     opts.optopt("b", "bootstrap", "the address on which to listen", "");
-    opts.optopt("c", "connect", "the address to which to connect", "");
+    opts.optflag("c", "connect", "the address to which to connect");
     opts.optflag("h", "", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
@@ -38,15 +43,14 @@ fn main() {
         return;
     }
 
-    let mut node = Node::new();
+    let mut node = Node::new(&genesis);
 
     match matches.opt_str("b") {
         Some(addr) => node.listen(addr.parse().unwrap()),
         None => {}
     }
 
-    match matches.opt_str("c") {
-        Some(addr) => node.connect(addr.parse().unwrap()),
-        None => {}
+    if matches.opt_present("c") {
+        node.connect();
     }
 }

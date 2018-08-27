@@ -1,5 +1,4 @@
 use serde_json;
-use std::vec::Vec;
 use std::str;
 
 // macro Deserialize, Serialize from serde_derive

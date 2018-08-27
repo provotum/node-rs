@@ -1,17 +1,24 @@
 use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
-use std::thread;
 use std::collections::HashSet;
 use std::io::Write;
 use std::io::Read;
 use std::io::ErrorKind;
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::iter::FromIterator;
 
 use ::p2p::thread::ThreadPool;
 use ::p2p::codec::{Codec, JsonCodec, Message};
 use ::protocol::clique::{CliqueProtocol, ProtocolHandler};
+use ::config::genesis::Genesis;
 
-
+/// Forms a node in the blockchain.
+///
+/// Each node manages its own thread pool on which it starts dedicated threads
+/// to listen for incoming connections. In addition, connection attempts to other
+/// nodes are also spawn on the thread pool.
+///
+/// Further, a node maintains a list of peers it has previously connected to or from
+/// which connection attempts have been made.
 pub struct Node {
     thread_pool: ThreadPool,
 
@@ -22,11 +29,16 @@ pub struct Node {
 
 impl Node {
 
-    pub fn new() -> Node {
+    /// Creates a new node with the provided genesis configuration.
+    ///
+    /// Panics if the given list is empty.
+    pub fn new(genesis: &Genesis) -> Node {
         Node {
-            // TODO: increase thread pool size for creating more connectionss
+            // TODO: increase thread pool size for creating more connections
             thread_pool: ThreadPool::new(2),
-            peers: Arc::new(Mutex::new(HashSet::new())),
+
+            // TODO: explain why we need an atomic reference and a mutex here
+            peers: Arc::new(Mutex::new(HashSet::from_iter(genesis.sealer.iter().cloned()))),
         }
     }
 
@@ -45,10 +57,7 @@ impl Node {
 
                 trace!("Got incoming stream on {:?} from {:?}", cloned_stream.local_addr(), cloned_stream.peer_addr());
 
-                // now add the peer to the list of known peers
-                if ! peers.lock().unwrap().contains(&cloned_stream.peer_addr().unwrap()) {
-                    peers.lock().unwrap().insert(cloned_stream.peer_addr().unwrap());
-                }
+                // TODO: Drop connection if not from authorized node
 
                 Node::handle_incoming_connection(&mut cloned_stream);
             }
@@ -57,22 +66,23 @@ impl Node {
 
     ///
     /// Connect to a particular address
-    pub fn connect(&mut self, connect_address: SocketAddr) {
-        let stream = TcpStream::connect(&connect_address);
+    pub fn connect(&mut self) {
 
-        match stream {
-            Ok(mut stream) => {
-                trace!("Successfully connected to {:?}", stream.peer_addr());
+        // create a reference which we can share across threads
+        let peers = Arc::clone(&self.peers);
 
-                // now add the peer to the list of known peers
-                if ! self.peers.lock().unwrap().contains(&stream.peer_addr().unwrap()) {
-                    self.peers.lock().unwrap().insert(stream.peer_addr().unwrap());
+        for peer_addr in peers.lock().unwrap().iter() {
+            let stream = TcpStream::connect(&peer_addr);
+
+            match stream {
+                Ok(mut stream) => {
+                    trace!("Successfully connected to {:?}", stream.peer_addr());
+
+                    Node::handle_outgoing_connection(&mut stream);
                 }
-
-                Node::handle_outgoing_connection(&mut stream);
-            },
-            Err(e) => {
-                warn!("Failed to connect to {:?} due to {:?}", connect_address, e);
+                Err(e) => {
+                    warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
+                }
             }
         }
     }
@@ -93,7 +103,7 @@ impl Node {
                     trace!("No bytes received on incoming connection. Dropping connection without response");
                     let shutdown_result = stream.shutdown(Shutdown::Both);
                     match shutdown_result {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(e) => {
                             trace!("Failed to shutdown incoming connection: {:?}", e);
                         }
@@ -101,7 +111,7 @@ impl Node {
 
                     return;
                 }
-            },
+            }
             Err(e) => {
                 trace!("Failed to read bytes from incoming connection: {:?}", e);
 
@@ -121,10 +131,10 @@ impl Node {
 
         let shutdown_result = stream_clone.shutdown(Shutdown::Read);
         match shutdown_result {
-            Ok(()) => {},
+            Ok(()) => {}
             // happens when the peer already closed the connection
-            Err(ref e) if e.kind() == ErrorKind::NotConnected => {},
-            Err(e) => {trace!("Could not shutdown incoming connection: {:?}", e)}
+            Err(ref e) if e.kind() == ErrorKind::NotConnected => {}
+            Err(e) => { trace!("Could not shutdown incoming connection: {:?}", e) }
         }
     }
 
@@ -137,7 +147,7 @@ impl Node {
         stream.flush().unwrap();
         let shutdown_result = stream.shutdown(Shutdown::Write);
         match shutdown_result {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(e) => {
                 trace!("Could not shutdown outgoing write connection: {:?}", e);
 
@@ -159,7 +169,7 @@ impl Node {
                     trace!("No bytes received on outgoing connection. Dropping connection without response");
                     let shutdown_result = stream.shutdown(Shutdown::Both);
                     match shutdown_result {
-                        Ok(()) => {},
+                        Ok(()) => {}
                         Err(e) => {
                             trace!("Failed to shutdown incoming connection: {:?}", e);
                         }
@@ -167,7 +177,7 @@ impl Node {
 
                     return;
                 }
-            },
+            }
             Err(e) => {
                 trace!("Failed to read bytes from incoming connection: {:?}", e);
 
