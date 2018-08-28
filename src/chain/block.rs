@@ -11,7 +11,7 @@ pub struct BlockContent {
     pub transactions: Vec<Transaction>
 }
 
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub data: BlockContent,
     pub previous: String,

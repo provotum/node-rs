@@ -10,7 +10,6 @@ use ::p2p::thread::ThreadPool;
 use ::p2p::codec::{Codec, JsonCodec, Message};
 use ::protocol::clique::{CliqueProtocol, ProtocolHandler};
 use ::config::genesis::Genesis;
-use ::chain::chain::Chain;
 
 /// Forms a node in the blockchain.
 ///
@@ -27,7 +26,7 @@ pub struct Node {
     /// or from which we received connections.
     peers: Arc<Mutex<HashSet<SocketAddr>>>,
 
-    chain: Arc<Mutex<Chain>>,
+    protocol: Arc<Mutex<CliqueProtocol>>,
 }
 
 impl Node {
@@ -41,7 +40,7 @@ impl Node {
             // TODO: explain why we need an atomic reference and a mutex here
             peers: Arc::new(Mutex::new(HashSet::from_iter(genesis.sealer.iter().cloned()))),
 
-            chain: Arc::new(Mutex::new(Chain::new(genesis))),
+            protocol: Arc::new(Mutex::new(CliqueProtocol::new(genesis))),
         }
     }
 
@@ -50,16 +49,19 @@ impl Node {
     pub fn listen(&self, bootstrap_address: SocketAddr) {
         let listener = TcpListener::bind(&bootstrap_address).unwrap();
         info!("Listening for incoming connections on {:?}", listener.local_addr());
+        // clone the mutex of the chain
+        let clique_protocol_handler = Arc::clone(&self.protocol);
 
         self.thread_pool.execute(move || {
             for stream in listener.incoming() {
                 let mut cloned_stream = stream.unwrap().try_clone().unwrap();
+                let cloned_clique_protocol_handler = Arc::clone(&clique_protocol_handler);
 
                 trace!("Got incoming stream on {:?} from {:?}", cloned_stream.local_addr(), cloned_stream.peer_addr());
 
                 // TODO: Drop connection if not from authorized node
 
-                Node::handle_incoming_connection(&mut cloned_stream);
+                Node::handle_incoming_connection(&mut cloned_stream, cloned_clique_protocol_handler);
             }
         });
     }
@@ -90,7 +92,7 @@ impl Node {
     /// Read all bytes until EOF (when underlying socket is closed) from the given stream
     /// and return a message back to the incoming sender.
     /// Then close the stream in order to signal EOF for the receiving node.
-    fn handle_incoming_connection(stream: &mut TcpStream) {
+    fn handle_incoming_connection(stream: &mut TcpStream, clique_protocol_handler: Arc<Mutex<CliqueProtocol>>) {
         trace!("handling incoming connection");
 
         let mut buffer_str = String::new();
@@ -121,7 +123,7 @@ impl Node {
 
         trace!("Read string from incoming connection: {:?}. Converting into message", buffer_str);
         let request = JsonCodec::decode(buffer_str);
-        let response = CliqueProtocol::handle(request);
+        let response = clique_protocol_handler.lock().unwrap().handle(request);
         let encoded_response = JsonCodec::encode(response);
 
         // send some data back
