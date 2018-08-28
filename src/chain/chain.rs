@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use std::vec::Vec;
 use bincode;
 use sha1::Sha1;
@@ -6,9 +6,6 @@ use sha1::Sha1;
 use ::chain::block::Block;
 use ::chain::transaction::Transaction;
 use ::config::genesis::Genesis;
-use ::chain::chain_visitor::{ChainVisitor, HeaviestBlockVisitor};
-use ::chain::chain_walker::{ChainWalker, LongestPathWalker};
-
 
 pub struct Chain {
     /// the hash of the genesis configuration

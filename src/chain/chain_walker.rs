@@ -87,10 +87,13 @@ mod chain_walker_test {
     use ::config::genesis::{CliqueConfig, Genesis};
     use ::chain::block::{Block, BlockContent};
     use ::chain::chain::Chain;
-    use ::chain::chain_visitor::{ChainVisitor, HeaviestBlockVisitor};
+    use ::chain::chain_visitor::HeaviestBlockVisitor;
     use ::chain::chain_walker::{ChainWalker, LongestPathWalker};
 
 
+    /// Test that the longest chain is found if no conflicting
+    /// branch is present, i.e. a branch having the exact amount of children
+    /// as another once.
     #[test]
     fn test_longest_path() {
         let genesis = Genesis {
@@ -156,7 +159,10 @@ mod chain_walker_test {
         let longest_path_walker = LongestPathWalker::new();
         longest_path_walker.visit_chain(chain, &mut heaviest_block_walker);
 
-        assert!(heaviest_block_walker.heaviest_block.eq(&"4".to_string()))
+        let option = heaviest_block_walker.heaviest_block;
+        assert!(option.is_some());
+        let expected_heaviest_block = option.unwrap();
+        assert!(expected_heaviest_block.eq(&"4".to_string()));
     }
 
 }

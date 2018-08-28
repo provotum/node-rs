@@ -2,7 +2,6 @@ extern crate futures;
 extern crate getopts;
 extern crate node;
 
-#[macro_use]
 extern crate log;
 extern crate simple_logger;
 
