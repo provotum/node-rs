@@ -6,16 +6,17 @@ use sha1::Sha1;
 use ::chain::block::Block;
 use ::chain::transaction::Transaction;
 use ::config::genesis::Genesis;
-use ::chain::chain_visitor::ChainVisitor;
+use ::chain::chain_visitor::{ChainVisitor, HeaviestBlockVisitor};
+use ::chain::chain_walker::{ChainWalker, LongestPathWalker};
 
 
 pub struct Chain {
     /// the hash of the genesis configuration
-    genesis_configuration_hash: String,
+    pub genesis_configuration_hash: String,
     /// all known blocks
-    blocks: HashMap<String, Block>,
+    pub blocks: HashMap<String, Block>,
     /// a matrix creating the relation between blocks
-    adjacent_matrix: HashMap<String, Vec<String>>
+    pub adjacent_matrix: HashMap<String, Vec<String>>
 }
 
 impl Chain {
@@ -42,7 +43,7 @@ impl Chain {
         Chain {
             genesis_configuration_hash: digest,
             blocks,
-            adjacent_matrix: HashMap::new()
+            adjacent_matrix
         }
     }
 
@@ -53,44 +54,28 @@ impl Chain {
         parent_block.is_some()
     }
 
-    /// Add the block to the currently longest path of the chain.
+    /// Add the block as child to its corresponding parent.
+    /// Panics, if the parent block specified does not exist.
+    /// Therefore, invoke `has_parent_of_block` first.
     pub fn add_block(&mut self, block: Block) {
-        // TODO: find longest path
+        trace!("matrix: {:?}", self.adjacent_matrix);
 
-        let parent_block = self.adjacent_matrix.get(&block.previous);
-        assert!(parent_block.is_some(), "Parent block with hash {:?} of block {:?} does not exist. Have you forgot to call has_parent_of_block before adding it?", block.previous.clone(), block.clone());
+        // add block hash to its parent as child
+        self.adjacent_matrix
+            // in-place modification of the vector
+            .entry(block.previous.clone())
+            .and_modify(|parent_block_children| {
+                    parent_block_children.push(block.current.clone());
+            });
 
+        // add a new entry for the block we've inserted
+        // having currently no children
+        self.adjacent_matrix
+            // in-place modification of the vector
+            .entry(block.current.clone())
+            .or_insert(vec![]);
 
+        // insert the block finally
         self.blocks.insert(block.current.clone(), block);
     }
-
-    /// Visit the chain starting from the node identified by `start_node_hash`
-    /// and traversing all its children.
-    ///
-    /// - `start_node_hash`: The hash of the node where the chain should be first visited from.
-    /// - `chain_visitor`: The visitor to use.
-    pub fn visit_chain<F>(&self, start_node_hash: String, chain_visitor: F)
-        where F: ChainVisitor {
-
-        if ! self.adjacent_matrix.contains_key(&start_node_hash) {
-            warn!("Could not find start node with hash {:?} in chain. Not invoking chain walker", start_node_hash);
-            return;
-        }
-
-        // this should never panic, as we check above that the start node exists
-        let start_node = self.adjacent_matrix.get(&start_node_hash).unwrap();
-
-        for child_block_hash in start_node.iter() {
-            let child_block = self.blocks.get(child_block_hash);
-            match child_block {
-                Some(child_block) => {
-                    chain_visitor.visit_block(child_block.clone());
-                },
-                None => {
-                    panic!("Inconsistent state: Block {:?} referenced but not contained in available blocks.", child_block_hash)
-                }
-            }
-        }
-    }
-
 }

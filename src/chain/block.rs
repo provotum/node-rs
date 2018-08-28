@@ -7,8 +7,8 @@ use ::chain::transaction::Transaction;
 
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct BlockContent {
-    timestamp: u64,
-    transactions: Vec<Transaction>
+    pub timestamp: u64,
+    pub transactions: Vec<Transaction>
 }
 
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]
