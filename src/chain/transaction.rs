@@ -1,6 +1,6 @@
 
 /// Use Deserialize from Serde, Hash from std::hash
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     from: String
 

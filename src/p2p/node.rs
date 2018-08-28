@@ -33,8 +33,6 @@ pub struct Node {
 impl Node {
 
     /// Creates a new node with the provided genesis configuration.
-    ///
-    /// Panics if the given list is empty.
     pub fn new(genesis: Genesis) -> Node {
         Node {
             // TODO: increase thread pool size for creating more connections

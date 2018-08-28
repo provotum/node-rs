@@ -1,26 +1,21 @@
 use std::vec::Vec;
-use std::option::Option;
-use std::boxed::Box;
-use std::rc::{Weak, Rc};
-use std::cell::RefCell;
-use std::borrow::BorrowMut;
 use bincode;
 use sha1::Sha1;
-
-use uuid::Uuid;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use ::chain::transaction::Transaction;
 
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct BlockContent {
+    timestamp: u64,
     transactions: Vec<Transaction>
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Block {
-    data: BlockContent,
-    previous: String,
-    current: String
+    pub data: BlockContent,
+    pub previous: String,
+    pub current: String
 }
 
 impl Block {
@@ -30,11 +25,16 @@ impl Block {
     /// - `previous_hash`: The hash of the previous block
     /// - `transactions`` A vector of transactions figuring as the data of this block
     pub fn new(previous_hash: String, transactions: Vec<Transaction>) -> Self {
+        let now = SystemTime::now();
+        let since_the_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
 
         let block_content = BlockContent {
+            timestamp: since_the_epoch,
             transactions
         };
 
+        // we only want to hash the transactions to make sure, that these
+        // are not duplicated. We don't care about the references of the block
         let bytes = bincode::serialize(&block_content).unwrap();
         let digest = Sha1::from(bytes).hexdigest();
 
