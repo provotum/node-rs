@@ -18,6 +18,13 @@ extern crate serde_json;
 extern crate log;
 extern crate simple_logger;
 
+extern crate sha1;
+extern crate bincode;
+
+
+extern crate crypto_rs;
+
 pub mod p2p;
 pub mod protocol;
 pub mod config;
+pub mod chain;

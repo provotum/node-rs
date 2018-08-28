@@ -7,7 +7,9 @@ use std::net::{SocketAddr};
 /// The configuration for the blockchain, usually
 /// included in the first block of a chain, and therefore often referred to
 /// as genesis block.
-#[derive(Deserialize, Debug)]
+///
+/// Use Deserialize from Serde, Hash from std::hash
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Genesis {
     pub version: String,
     pub clique: CliqueConfig,
@@ -15,7 +17,7 @@ pub struct Genesis {
 }
 
 /// A configuration element for clique specific values.
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CliqueConfig {
     pub block_period: usize
 }

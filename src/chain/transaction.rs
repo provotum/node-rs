@@ -1,0 +1,14 @@
+
+/// Use Deserialize from Serde, Hash from std::hash
+#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug)]
+pub struct Transaction {
+    from: String
+
+    // TODO: add vote
+    // TODO: add 0/1 zk proof
+    // TODO: add cai zk proof
+}
+
+impl Transaction {
+
+}

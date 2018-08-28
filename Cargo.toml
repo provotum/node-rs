@@ -17,3 +17,6 @@ getopts = "0.2"
 rand = "0.3"
 log = "0.4"
 simple_logger = "0.5"
+sha1 = { version = "0.6.0", features = ["std"] }
+bincode = "1.0"
+crypto-rs = { git = "https://github.com/provotum/crypto-rs.git", branch = "master" }

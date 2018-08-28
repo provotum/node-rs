@@ -43,7 +43,7 @@ fn main() {
         return;
     }
 
-    let mut node = Node::new(&genesis);
+    let mut node = Node::new(genesis);
 
     match matches.opt_str("b") {
         Some(addr) => node.listen(addr.parse().unwrap()),

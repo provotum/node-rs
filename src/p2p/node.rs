@@ -10,6 +10,7 @@ use ::p2p::thread::ThreadPool;
 use ::p2p::codec::{Codec, JsonCodec, Message};
 use ::protocol::clique::{CliqueProtocol, ProtocolHandler};
 use ::config::genesis::Genesis;
+use ::chain::chain::Chain;
 
 /// Forms a node in the blockchain.
 ///
@@ -25,6 +26,8 @@ pub struct Node {
     /// A cache of peers we have connected to
     /// or from which we received connections.
     peers: Arc<Mutex<HashSet<SocketAddr>>>,
+
+    chain: Arc<Mutex<Chain>>,
 }
 
 impl Node {
@@ -32,13 +35,15 @@ impl Node {
     /// Creates a new node with the provided genesis configuration.
     ///
     /// Panics if the given list is empty.
-    pub fn new(genesis: &Genesis) -> Node {
+    pub fn new(genesis: Genesis) -> Node {
         Node {
             // TODO: increase thread pool size for creating more connections
             thread_pool: ThreadPool::new(2),
 
             // TODO: explain why we need an atomic reference and a mutex here
             peers: Arc::new(Mutex::new(HashSet::from_iter(genesis.sealer.iter().cloned()))),
+
+            chain: Arc::new(Mutex::new(Chain::new(genesis))),
         }
     }
 
@@ -47,9 +52,6 @@ impl Node {
     pub fn listen(&self, bootstrap_address: SocketAddr) {
         let listener = TcpListener::bind(&bootstrap_address).unwrap();
         info!("Listening for incoming connections on {:?}", listener.local_addr());
-
-        // create a reference which we can share across threads
-        let peers = Arc::clone(&self.peers);
 
         self.thread_pool.execute(move || {
             for stream in listener.incoming() {
