@@ -7,7 +7,17 @@ use std::vec::Vec;
 use std::net::{SocketAddr};
 
 pub trait ProtocolHandler {
+
+    /// Handles a message received from another peer.
+    /// The returned message is the direct response to the client
+    /// from which we've received the provided message.
     fn handle(&mut self, message: Message) -> Message;
+
+    /// Handles a message received on the RPC interface.
+    /// Returns a pair of messages, whereas the first is meant to be sent
+    /// to the client from which we are receiving the message, and the
+    /// second is meant to be broadcast to all other known peers.
+    fn handle_rpc(&mut self, message: Message) -> (Message, Message);
 }
 
 pub struct CliqueProtocol {
@@ -81,6 +91,23 @@ impl ProtocolHandler for CliqueProtocol {
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(_) => unimplemented!("Not yet implemented: Add block to chain"),
             Message::BlockAccept => unimplemented!("Not yet implemented: Block accept"),
+        }
+    }
+
+    fn handle_rpc(&mut self, message: Message) -> (Message, Message) {
+        match message {
+            Message::None => (Message::None, Message::None),
+            Message::Ping => (Message::None, Message::None),
+            Message::Pong => (Message::None, Message::None),
+            Message::TransactionPayload(transaction) => {
+                self.transactions.push(transaction.clone());
+
+                (Message::TransactionAccept, Message::TransactionPayload(transaction))
+            },
+            Message::TransactionAccept => (Message::None, Message::None),
+            Message::BlockRequest(_) => (Message::None, Message::None),
+            Message::BlockPayload(_) => (Message::None, Message::None),
+            Message::BlockAccept => (Message::None, Message::None),
         }
     }
 }

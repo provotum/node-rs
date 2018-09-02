@@ -5,7 +5,6 @@ authors = ["Raphael Matile <raphael.matile@gmail.com>"]
 
 [dependencies]
 bytes = "0.4.9"
-env_logger = "0.5.12"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
