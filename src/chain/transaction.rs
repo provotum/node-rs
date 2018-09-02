@@ -2,7 +2,7 @@
 /// Use Deserialize from Serde, Hash from std::hash
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
-    from: String
+    pub from: String
 
     // TODO: add vote
     // TODO: add 0/1 zk proof
