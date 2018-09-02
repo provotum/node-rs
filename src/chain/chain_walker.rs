@@ -99,7 +99,8 @@ mod chain_walker_test {
         let genesis = Genesis {
             version: "test_version".to_string(),
             clique: CliqueConfig {
-                block_period: 10
+                block_period: 10,
+                signer_limit: 1
             },
             sealer: vec![]
         };

@@ -9,8 +9,10 @@ pub enum Message {
     Ping,
     Pong,
     TransactionPayload(Transaction),
+    TransactionAccept,
     BlockRequest(String),
     BlockPayload(Block),
+    BlockAccept,
     None,
 }
 

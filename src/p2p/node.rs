@@ -22,6 +22,10 @@ use ::config::genesis::Genesis;
 pub struct Node {
     thread_pool: ThreadPool,
 
+    listen_address: SocketAddr,
+
+    rpc_listen_address: SocketAddr,
+
     /// A cache of peers we have connected to
     /// or from which we received connections.
     peers: Arc<Mutex<HashSet<SocketAddr>>>,
@@ -32,22 +36,26 @@ pub struct Node {
 impl Node {
 
     /// Creates a new node with the provided genesis configuration.
-    pub fn new(genesis: Genesis) -> Node {
+    pub fn new(listen_address: SocketAddr, rpc_listen_address: SocketAddr, genesis: Genesis) -> Node {
         Node {
             // TODO: increase thread pool size for creating more connections
-            thread_pool: ThreadPool::new(2),
+            thread_pool: ThreadPool::new(3),
+
+            listen_address: listen_address.clone(),
+
+            rpc_listen_address: rpc_listen_address.clone(),
 
             // TODO: explain why we need an atomic reference and a mutex here
             peers: Arc::new(Mutex::new(HashSet::from_iter(genesis.sealer.iter().cloned()))),
 
-            protocol: Arc::new(Mutex::new(CliqueProtocol::new(genesis))),
+            protocol: Arc::new(Mutex::new(CliqueProtocol::new(listen_address, genesis))),
         }
     }
 
     ///
     /// Start a listener on the bootstrap address
-    pub fn listen(&self, bootstrap_address: SocketAddr) {
-        let listener = TcpListener::bind(&bootstrap_address).unwrap();
+    pub fn listen(&self) {
+        let listener = TcpListener::bind(&self.listen_address).unwrap();
         info!("Listening for incoming connections on {:?}", listener.local_addr());
         // clone the mutex of the chain
         let clique_protocol_handler = Arc::clone(&self.protocol);
@@ -61,26 +69,48 @@ impl Node {
 
                 // TODO: Drop connection if not from authorized node
 
-                Node::handle_incoming_connection(&mut cloned_stream, cloned_clique_protocol_handler);
+                Node::handle_incoming_node_connection(&mut cloned_stream, cloned_clique_protocol_handler);
             }
         });
     }
 
-    ///
-    /// Connect to a particular address
+    pub fn listen_rpc(&self) {
+        let rpc_listener = TcpListener::bind(&self.rpc_listen_address).unwrap();
+        info!("Listening for incoming RPC connections on {:?}", rpc_listener.local_addr());
+
+        let clique_protocol_handler = Arc::clone(&self.protocol);
+
+        self.thread_pool.execute(move || {
+            for stream in rpc_listener.incoming() {
+                let mut cloned_stream = stream.unwrap().try_clone().unwrap();
+                let cloned_clique_protocol_handler = Arc::clone(&clique_protocol_handler);
+
+                trace!("Got incoming stream on {:?} from {:?}", cloned_stream.local_addr(), cloned_stream.peer_addr());
+
+                Node::handle_incoming_node_connection(&mut cloned_stream, cloned_clique_protocol_handler);
+            }
+        });
+    }
+
+    /// Send a Ping message to all known peers
     pub fn connect(&mut self) {
 
         // create a reference which we can share across threads
         let peers = Arc::clone(&self.peers);
 
         for peer_addr in peers.lock().unwrap().iter() {
+            if self.listen_address.eq(peer_addr) {
+                // avoid connecting to ourselves
+                continue;
+            }
+
             let stream = TcpStream::connect(&peer_addr);
 
             match stream {
                 Ok(mut stream) => {
                     trace!("Successfully connected to {:?}", stream.peer_addr());
 
-                    Node::handle_outgoing_connection(&mut stream);
+                    Node::handle_outgoing_connection(&mut stream, Message::Ping);
                 }
                 Err(e) => {
                     warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
@@ -92,8 +122,8 @@ impl Node {
     /// Read all bytes until EOF (when underlying socket is closed) from the given stream
     /// and return a message back to the incoming sender.
     /// Then close the stream in order to signal EOF for the receiving node.
-    fn handle_incoming_connection(stream: &mut TcpStream, clique_protocol_handler: Arc<Mutex<CliqueProtocol>>) {
-        trace!("handling incoming connection");
+    fn handle_incoming_node_connection(stream: &mut TcpStream, clique_protocol_handler: Arc<Mutex<CliqueProtocol>>) {
+        trace!("handling incoming node connection");
 
         let mut buffer_str = String::new();
         let result = stream.read_to_string(&mut buffer_str);
@@ -140,10 +170,10 @@ impl Node {
         }
     }
 
-    fn handle_outgoing_connection(stream: &mut TcpStream) {
+    fn handle_outgoing_connection(stream: &mut TcpStream, message: Message) {
         trace!("handling outgoing connection");
 
-        let request = JsonCodec::encode(Message::Pong);
+        let request = JsonCodec::encode(message);
 
         stream.write_all(&request.into_bytes()).unwrap();
         stream.flush().unwrap();

@@ -13,7 +13,7 @@ use node::config::genesis::Genesis;
 
 
 fn print_usage(program: &str, opts: &getopts::Options) {
-    let brief = format!("Usage: {} [options]", program);
+    let brief = format!("Usage: {} listen_address rpc_listen_address [options]", program);
     print!("{}", opts.usage(&brief));
 }
 
@@ -28,9 +28,13 @@ fn main() {
     let program = args[0].clone();
 
     let mut opts = getopts::Options::new();
-    opts.optopt("b", "bootstrap", "the address on which to listen", "");
     opts.optflag("c", "connect", "the address to which to connect");
     opts.optflag("h", "", "print this help menu");
+
+    if args.len() < 3 {
+        print_usage(&program, &opts);
+        return;
+    }
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => { m }
@@ -42,12 +46,12 @@ fn main() {
         return;
     }
 
-    let mut node = Node::new(genesis);
+    let listen_addr = args[1].clone();
+    let rpc_listen_addr = args[2].clone();
+    let mut node = Node::new(listen_addr.parse().unwrap(), rpc_listen_addr.parse().unwrap(), genesis);
 
-    match matches.opt_str("b") {
-        Some(addr) => node.listen(addr.parse().unwrap()),
-        None => {}
-    }
+    node.listen();
+    node.listen_rpc();
 
     if matches.opt_present("c") {
         node.connect();

@@ -44,6 +44,13 @@ impl Chain {
         }
     }
 
+    pub fn get_current_block_number(&self) -> usize {
+        // TODO: implement
+        unimplemented!("not yet implemented");
+
+        0
+    }
+
     /// Returns true, if the parent of the given block exists, false otherwise.
     pub fn has_parent_of_block(self, block: Block) -> bool {
         let parent_block = self.adjacent_matrix.get(&block.previous);

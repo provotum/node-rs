@@ -19,7 +19,8 @@ pub struct Genesis {
 /// A configuration element for clique specific values.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CliqueConfig {
-    pub block_period: usize
+    pub block_period: usize,
+    pub signer_limit: usize,
 }
 
 impl Genesis {

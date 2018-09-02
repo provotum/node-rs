@@ -1,9 +1,11 @@
 {
   "version": "0.1.0",
   "clique": {
-    "block_period": 15
+    "block_period": 15,
+    "signer_limit": 1
   },
   "sealer": [
-    "127.0.0.1:9001"
+    "127.0.0.1:9001",
+    "127.0.0.1:9002"
   ]
 }
