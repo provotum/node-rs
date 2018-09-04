@@ -26,56 +26,60 @@ impl Chain {
     pub fn new(genesis: Genesis) -> Self {
         // create the genesis block with an empty hash and no transactions
         let trxs: Vec<Transaction> = vec![];
-        let genesis_block: Block = Block::new(0,String::new(), trxs);
+        let genesis_block: Block = Block::new(String::new(), trxs);
 
         let mut blocks = HashMap::new();
-        blocks.insert(genesis_block.current.clone(), genesis_block.clone());
+        blocks.insert(genesis_block.identifier.clone(), genesis_block.clone());
 
         // Add an entry for the genesis block in the adjacent matrix,
         // i.e. initialize children of the genesis block as an empty vector.
         let mut adjacent_matrix: HashMap<String, Vec<String>> = HashMap::new();
-        adjacent_matrix.insert(genesis_block.current.clone(), vec![]);
+        adjacent_matrix.insert(genesis_block.identifier.clone(), vec![]);
 
         // Create a sha1 digest of the genesis configuration so that we can later
         // ensure, that we only accept blocks from a chain with the same configuration.
         let bytes = bincode::serialize(&genesis).unwrap();
         let digest: String = Sha1::from(bytes).hexdigest();
 
-        trace!("Genesis block hash is: {:?}", genesis_block.current.clone());
+        trace!("Genesis block hash is: {:?}", genesis_block.identifier.clone());
 
         Chain {
             genesis_configuration_hash: digest,
-            genesis_identifier_hash: genesis_block.current.clone(),
+            genesis_identifier_hash: genesis_block.identifier.clone(),
             blocks,
             adjacent_matrix
         }
     }
 
     pub fn get_current_block_number(&self) -> usize {
-        let depth = self.get_current_block().depth;
+        let depth = self.get_current_block().0;
 
         depth + 1
     }
 
     pub fn get_current_block_timestamp(&self) -> u64 {
-        self.get_current_block().data.timestamp
+        self.get_current_block().1.data.timestamp
     }
 
-    pub fn get_current_block(&self) -> Block {
-        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+    pub fn get_current_block(&self) -> (usize, Block) {
+        let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(&self, &mut heaviest_block_walker);
+        longest_path_walker.visit_chain(&self, &mut heaviest_block_visitor);
 
-        let option = heaviest_block_walker.heaviest_block;
+        let heaviest_block_height_option = heaviest_block_visitor.height;
+        assert!(heaviest_block_height_option.is_some());
+        let heaviest_block_height = heaviest_block_height_option.unwrap();
+
+        let option = heaviest_block_visitor.heaviest_block;
         assert!(option.is_some());
         let heaviest_block_reference = option.unwrap();
 
-        (*self.blocks.get(&heaviest_block_reference).unwrap()).clone()
+        (heaviest_block_height, (*self.blocks.get(&heaviest_block_reference).unwrap()).clone())
     }
 
     /// Returns true, if the parent of the given block exists, false otherwise.
     pub fn has_parent_of_block(self, block: Block) -> bool {
-        let parent_block = self.adjacent_matrix.get(&block.previous);
+        let parent_block = self.adjacent_matrix.get(&block.data.parent);
 
         parent_block.is_some()
     }
@@ -87,10 +91,10 @@ impl Chain {
         // add block hash to its parent as child
         self.adjacent_matrix
             // in-place modification of the vector
-            .entry(block.previous.clone())
+            .entry(block.data.parent.clone())
             .and_modify(|parent_block_children| {
-                if ! parent_block_children.contains(&block.current.clone()) {
-                    parent_block_children.push(block.current.clone());
+                if ! parent_block_children.contains(&block.identifier.clone()) {
+                    parent_block_children.push(block.identifier.clone());
                 }
             });
 
@@ -98,11 +102,11 @@ impl Chain {
         // having currently no children
         self.adjacent_matrix
             // in-place modification of the vector
-            .entry(block.current.clone())
+            .entry(block.identifier.clone())
             .or_insert(vec![]);
 
         // insert the block finally
-        self.blocks.insert(block.current.clone(), block);
+        self.blocks.insert(block.identifier.clone(), block);
     }
 }
 
@@ -129,13 +133,12 @@ mod chain_test {
         let genesis_id = chain.genesis_identifier_hash.clone();
 
         let block = Block {
-            depth: 1,
+            identifier: "1".to_string(),
             data: BlockContent {
+                parent: genesis_id.clone(),
                 timestamp: 1,
                 transactions: vec![]
-            },
-            previous: genesis_id.clone(),
-            current: "1".to_string()
+            }
         };
 
         assert!(chain.blocks.len().eq(&1));

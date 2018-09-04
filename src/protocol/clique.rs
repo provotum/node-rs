@@ -119,8 +119,7 @@ impl CliqueProtocol {
         let current_block = self.chain.get_current_block();
         trace!("Current block before adding: {:?}", current_block.clone());
         let block = Block::new(
-            current_block.depth + 1,
-            current_block.current.clone(),
+            current_block.1.identifier.clone(),
             self.transactions.clone()
         );
 

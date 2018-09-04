@@ -7,16 +7,15 @@ use ::chain::transaction::Transaction;
 
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct BlockContent {
+    pub parent: String,
     pub timestamp: u64,
-    pub transactions: Vec<Transaction>
+    pub transactions: Vec<Transaction>,
 }
 
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-    pub depth: usize,
+    pub identifier: String,
     pub data: BlockContent,
-    pub previous: String,
-    pub current: String
 }
 
 impl Block {
@@ -25,11 +24,12 @@ impl Block {
     ///
     /// - `previous_hash`: The hash of the previous block
     /// - `transactions`` A vector of transactions figuring as the data of this block
-    pub fn new(depth: usize, previous_hash: String, transactions: Vec<Transaction>) -> Self {
+    pub fn new(previous_hash: String, transactions: Vec<Transaction>) -> Self {
         let now = SystemTime::now();
         let since_the_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
 
         let block_content = BlockContent {
+            parent: previous_hash,
             timestamp: since_the_epoch,
             transactions
         };
@@ -40,10 +40,8 @@ impl Block {
         let digest = Sha1::from(bytes).hexdigest();
 
         Block {
-            depth,
+            identifier: digest,
             data: block_content,
-            previous: previous_hash,
-            current: digest
         }
     }
 }

@@ -28,10 +28,10 @@ impl LongestPathWalker {
     }
 
     fn traverse_level(parent_level: usize, parent_block: &Block, chain: &Chain) -> (usize, String) {
-        let mut most_deepest_block = (parent_level, parent_block.current.clone());
+        let mut most_deepest_block = (parent_level, parent_block.identifier.clone());
 
         // get all children of the current parent block
-        let children = chain.adjacent_matrix.get(parent_block.current.as_str()).unwrap();
+        let children = chain.adjacent_matrix.get(parent_block.identifier.as_str()).unwrap();
 
         let current_child_level = parent_level + 1;
         for child_hash in children.iter() {
@@ -62,7 +62,7 @@ impl ChainWalker for LongestPathWalker {
     fn visit_chain<F: ChainVisitor>(&self, chain: &Chain, visitor: &mut F) {
         let genesis_children = chain.adjacent_matrix.get(chain.genesis_identifier_hash.clone().as_str()).unwrap();
 
-        let mut most_deepest_block = (0, chain.genesis_identifier_hash.clone());
+        let mut current_deepest_block = (0, chain.genesis_identifier_hash.clone());
         for genesis_child_hash in genesis_children.iter() {
             let genesis_child = chain.blocks.get(genesis_child_hash).unwrap();
 
@@ -70,15 +70,15 @@ impl ChainWalker for LongestPathWalker {
             let result: (usize, String) = LongestPathWalker::traverse_level(1, genesis_child, &chain);
 
             // update current most deepest depth and the corresponding block hash
-            if result.0 > most_deepest_block.0 {
-                most_deepest_block.0 = result.0;
-                most_deepest_block.1 = result.1;
+            if result.0 > current_deepest_block.0 {
+                current_deepest_block.0 = result.0;
+                current_deepest_block.1 = result.1;
             }
         }
 
         // visit the block being at the most deepest position
-        let most_deepest_block = chain.blocks.get(most_deepest_block.1.as_str()).unwrap();
-        visitor.visit_block(most_deepest_block);
+        let deepest_block = chain.blocks.get(current_deepest_block.1.as_str()).unwrap();
+        visitor.visit_block(current_deepest_block.0, deepest_block);
     }
 }
 
@@ -112,65 +112,64 @@ mod chain_walker_test {
 
         // first level
         chain.add_block(Block {
-            depth: 1,
+            identifier: "1".to_string(),
             data: BlockContent {
+                parent: genesis_id,
                 timestamp: 1,
                 transactions: vec![]
-            },
-            previous: genesis_id,
-            current: "1".to_string()
+            }
         });
 
         // second level
         chain.add_block(Block {
-            depth: 2,
+            identifier: "21".to_string(),
             data: BlockContent {
+                parent: "1".to_string(),
                 timestamp: 2,
                 transactions: vec![]
-            },
-            previous: "1".to_string(),
-            current: "21".to_string()
+            }
         });
 
         chain.add_block(Block {
-            depth: 2,
+            identifier: "22".to_string(),
             data: BlockContent {
+                parent: "1".to_string(),
                 timestamp: 3,
                 transactions: vec![]
-            },
-            previous: "1".to_string(),
-            current: "22".to_string()
+            }
         });
 
         // third level
         chain.add_block(Block {
-            depth: 3,
+            identifier: "3".to_string(),
             data: BlockContent {
+                parent: "22".to_string(),
                 timestamp: 4,
                 transactions: vec![]
-            },
-            previous: "22".to_string(),
-            current: "3".to_string()
+            }
         });
 
         // fourth level
         chain.add_block(Block {
-            depth: 4,
+            identifier: "4".to_string(),
             data: BlockContent {
+                parent: "3".to_string(),
                 timestamp: 5,
                 transactions: vec![]
-            },
-            previous: "3".to_string(),
-            current: "4".to_string()
+            }
         });
 
-        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_visitor);
 
-        let option = heaviest_block_walker.heaviest_block;
-        assert!(option.is_some());
-        let expected_heaviest_block = option.unwrap();
+        let heaviest_block_height = heaviest_block_visitor.height;
+        assert!(heaviest_block_height.is_some(), "Expected that heaviest block height is of type Some()");
+        assert!(heaviest_block_height.unwrap().eq(&4), "Expected that heaviest block height is 4");
+
+        let heaviest_block = heaviest_block_visitor.heaviest_block;
+        assert!(heaviest_block.is_some());
+        let expected_heaviest_block = heaviest_block.unwrap();
         println!("expected heaviest block {:?}", expected_heaviest_block);
         assert!(expected_heaviest_block.eq(&"4".to_string()));
     }
@@ -192,20 +191,23 @@ mod chain_walker_test {
 
         // first level
         chain.add_block(Block {
-            depth: 1,
+            identifier: "1".to_string(),
             data: BlockContent {
+                parent: genesis_id,
                 timestamp: 1,
                 transactions: vec![]
-            },
-            previous: genesis_id,
-            current: "1".to_string()
+            }
         });
 
-        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_visitor);
 
-        let option = heaviest_block_walker.heaviest_block;
+        let heaviest_block_height = heaviest_block_visitor.height;
+        assert!(heaviest_block_height.is_some(), "Expected that heaviest block height is of type Some()");
+        assert!(heaviest_block_height.unwrap().eq(&1), "Expected that heaviest block height is 1");
+
+        let option = heaviest_block_visitor.heaviest_block;
         assert!(option.is_some());
         let expected_heaviest_block = option.unwrap();
         println!("expected heaviest block {:?}", expected_heaviest_block);
@@ -225,14 +227,18 @@ mod chain_walker_test {
 
         let chain = Chain::new(genesis);
 
-        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_visitor);
 
-        let option = heaviest_block_walker.heaviest_block;
+        let heaviest_block_height = heaviest_block_visitor.height;
+        assert!(heaviest_block_height.is_some(), "Expected that heaviest block height is of type Some()");
+        assert!(heaviest_block_height.unwrap().eq(&0), "Expected that heaviest block height is 0");
+
+        let option = heaviest_block_visitor.heaviest_block;
         assert!(option.is_some());
         let expected_heaviest_block = option.unwrap();
-        assert!(chain.blocks.get(expected_heaviest_block.as_str()).unwrap().depth.eq(&0));
+        assert!(chain.blocks.get(expected_heaviest_block.as_str()).unwrap().data.parent.eq(&String::new()));
     }
 
 }
