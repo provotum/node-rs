@@ -66,7 +66,8 @@ impl ChainWalker for LongestPathWalker {
         for genesis_child_hash in genesis_children.iter() {
             let genesis_child = chain.blocks.get(genesis_child_hash).unwrap();
 
-            let result: (usize, String) = LongestPathWalker::traverse_level(0, genesis_child, &chain);
+            // genesis child is already at depth 1
+            let result: (usize, String) = LongestPathWalker::traverse_level(1, genesis_child, &chain);
 
             // update current most deepest depth and the corresponding block hash
             if result.0 > most_deepest_block.0 {
@@ -107,6 +108,8 @@ mod chain_walker_test {
 
 
         let mut chain = Chain::new(genesis);
+        let genesis_id = chain.genesis_identifier_hash.clone();
+
         // first level
         chain.add_block(Block {
             depth: 1,
@@ -114,7 +117,7 @@ mod chain_walker_test {
                 timestamp: 1,
                 transactions: vec![]
             },
-            previous: String::new(),
+            previous: genesis_id,
             current: "1".to_string()
         });
 
@@ -168,7 +171,45 @@ mod chain_walker_test {
         let option = heaviest_block_walker.heaviest_block;
         assert!(option.is_some());
         let expected_heaviest_block = option.unwrap();
+        println!("expected heaviest block {:?}", expected_heaviest_block);
         assert!(expected_heaviest_block.eq(&"4".to_string()));
+    }
+
+    #[test]
+    fn test_longest_path_for_two_blocks() {
+        let genesis = Genesis {
+            version: "test_version".to_string(),
+            clique: CliqueConfig {
+                block_period: 10,
+                signer_limit: 1
+            },
+            sealer: vec![]
+        };
+
+
+        let mut chain = Chain::new(genesis);
+        let genesis_id = chain.genesis_identifier_hash.clone();
+
+        // first level
+        chain.add_block(Block {
+            depth: 1,
+            data: BlockContent {
+                timestamp: 1,
+                transactions: vec![]
+            },
+            previous: genesis_id,
+            current: "1".to_string()
+        });
+
+        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let longest_path_walker = LongestPathWalker::new();
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
+
+        let option = heaviest_block_walker.heaviest_block;
+        assert!(option.is_some());
+        let expected_heaviest_block = option.unwrap();
+        println!("expected heaviest block {:?}", expected_heaviest_block);
+        assert!(expected_heaviest_block.eq(&"1".to_string()));
     }
 
     #[test]
@@ -182,8 +223,7 @@ mod chain_walker_test {
             sealer: vec![]
         };
 
-
-        let mut chain = Chain::new(genesis);
+        let chain = Chain::new(genesis);
 
         let mut heaviest_block_walker = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();

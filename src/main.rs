@@ -52,6 +52,7 @@ fn main() {
 
     node.listen();
     node.listen_rpc();
+    node.sign();
 
     if matches.opt_present("c") {
         node.connect();

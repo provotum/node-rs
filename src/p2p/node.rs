@@ -5,6 +5,7 @@ use std::io::Read;
 use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
 use std::iter::FromIterator;
+use std::{thread, time};
 
 use ::p2p::thread::ThreadPool;
 use ::p2p::codec::{Codec, JsonCodec, Message};
@@ -243,6 +244,59 @@ impl Node {
                 }
             }
         }
+    }
+
+    pub fn sign(&mut self) {
+        let clique_protocol_handler = Arc::clone(&self.protocol);
+        // create a reference which we can share across threads
+        let peers = Arc::clone(&self.peers);
+        let own_address = self.listen_address.clone();
+
+        self.thread_pool.execute(move || {
+            loop {
+                trace!("Starting to collect any transactions to add to a block and broadcast");
+                let cloned_clique_protocol_handler: Arc<Mutex<CliqueProtocol>> = Arc::clone(&clique_protocol_handler);
+                let cloned_peers = Arc::clone(&peers);
+
+                let delay = time::Duration::from_millis(5000);
+
+                let something_to_broadcast = cloned_clique_protocol_handler.lock().unwrap().sign();
+
+                match something_to_broadcast {
+                    None => {
+                        info!("No block to broadcast");
+                        // wait until next try
+                        thread::sleep(delay);
+                    },
+                    Some(block) => {
+                        info!("Broadcasting block {:?}", block);
+                        // broadcast new block
+                        for peer_addr in cloned_peers.lock().unwrap().iter() {
+                            if own_address.clone().eq(peer_addr) {
+                                // avoid connecting to ourselves
+                                continue;
+                            }
+
+                            let stream = TcpStream::connect(&peer_addr);
+
+                            match stream {
+                                Ok(mut stream) => {
+                                    trace!("Successfully connected to {:?}", stream.peer_addr());
+
+                                    Node::handle_outgoing_connection(&mut stream, Message::BlockPayload(block.clone()));
+                                }
+                                Err(e) => {
+                                    warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
+                                }
+                            }
+                        }
+
+                        // wait until next try
+                        thread::sleep(delay);
+                    }
+                }
+            }
+        });
     }
 
     fn handle_outgoing_connection(stream: &mut TcpStream, message: Message) {

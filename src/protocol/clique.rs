@@ -5,6 +5,8 @@ use ::config::genesis::Genesis;
 use ::p2p::codec::Message;
 use std::vec::Vec;
 use std::net::{SocketAddr};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{thread, time};
 
 pub trait ProtocolHandler {
 
@@ -25,6 +27,7 @@ pub struct CliqueProtocol {
     signer_index: usize,
     signer_count: usize,
     signer_limit: usize,
+    block_period: u64,
     chain: Chain,
 }
 
@@ -46,6 +49,7 @@ impl CliqueProtocol {
             signer_index: own_signer_index,
             signer_count: own_signer_count,
             signer_limit: genesis.clique.signer_limit,
+            block_period: genesis.clique.block_period,
             chain: Chain::new(genesis),
         }
     }
@@ -87,6 +91,48 @@ impl CliqueProtocol {
             self.transactions.push(transaction);
         }
     }
+
+    pub fn sign(&mut self) -> Option<Block> {
+        if ! self.is_leader() && ! self.is_co_leader() {
+            trace!("Skipping to sign as not leader nor co-leader");
+            return None;
+        }
+
+        let now = SystemTime::now();
+        let now_unix = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
+
+        let next_run = self.block_period + self.chain.get_current_block_timestamp();
+
+        if now_unix < next_run {
+            trace!("Block period is not yet over. {:?} seconds left. Waiting...", next_run - now_unix);
+            return None;
+        }
+
+        if self.is_co_leader() {
+            trace!("Signing as co-leader and therefore adding wiggle time before broadcast");
+            // add some "wiggle" time to let leader nodes announce their blocks first
+            let delay = time::Duration::from_millis(500);
+
+            thread::sleep(delay);
+        }
+
+        let current_block = self.chain.get_current_block();
+        trace!("Current block before adding: {:?}", current_block.clone());
+        let block = Block::new(
+            current_block.depth + 1,
+            current_block.current.clone(),
+            self.transactions.clone()
+        );
+
+        // reset current state again
+        self.transactions = vec![];
+
+        // add block to our chain as well
+        self.chain.add_block(block.clone());
+        trace!("Current block after adding: {:?}", self.chain.get_current_block().clone());
+
+        Some(block)
+    }
 }
 
 impl ProtocolHandler for CliqueProtocol {
@@ -107,8 +153,13 @@ impl ProtocolHandler for CliqueProtocol {
             },
             Message::TransactionAccept => unimplemented!("Not yet implemented: Block accept"),
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
-            Message::BlockPayload(_) => unimplemented!("Not yet implemented: Add block to chain"),
-            Message::BlockAccept => unimplemented!("Not yet implemented: Block accept"),
+            Message::BlockPayload(block) => {
+                trace!("Adding block {:?}", block);
+                self.chain.add_block(block);
+
+                Message::TransactionAccept
+            },
+            Message::BlockAccept => Message::None,
         }
     }
 

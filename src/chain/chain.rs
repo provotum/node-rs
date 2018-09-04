@@ -50,6 +50,16 @@ impl Chain {
     }
 
     pub fn get_current_block_number(&self) -> usize {
+        let depth = self.get_current_block().depth;
+
+        depth + 1
+    }
+
+    pub fn get_current_block_timestamp(&self) -> u64 {
+        self.get_current_block().data.timestamp
+    }
+
+    pub fn get_current_block(&self) -> Block {
         let mut heaviest_block_walker = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
         longest_path_walker.visit_chain(&self, &mut heaviest_block_walker);
@@ -58,9 +68,7 @@ impl Chain {
         assert!(option.is_some());
         let heaviest_block_reference = option.unwrap();
 
-        let depth = self.blocks.get(&heaviest_block_reference).unwrap().depth;
-
-        depth + 1
+        (*self.blocks.get(&heaviest_block_reference).unwrap()).clone()
     }
 
     /// Returns true, if the parent of the given block exists, false otherwise.
@@ -74,14 +82,15 @@ impl Chain {
     /// Panics, if the parent block specified does not exist.
     /// Therefore, invoke `has_parent_of_block` first.
     pub fn add_block(&mut self, block: Block) {
-        trace!("matrix: {:?}", self.adjacent_matrix);
-
         // add block hash to its parent as child
+        trace!("Matrix before add: {:?}", self.adjacent_matrix);
         self.adjacent_matrix
             // in-place modification of the vector
             .entry(block.previous.clone())
             .and_modify(|parent_block_children| {
+                if ! parent_block_children.contains(&block.current.clone()) {
                     parent_block_children.push(block.current.clone());
+                }
             });
 
         // add a new entry for the block we've inserted
@@ -91,7 +100,57 @@ impl Chain {
             .entry(block.current.clone())
             .or_insert(vec![]);
 
+        trace!("Matrix after add: {:?}", self.adjacent_matrix);
+
         // insert the block finally
         self.blocks.insert(block.current.clone(), block);
     }
+}
+
+#[cfg(test)]
+mod chain_test {
+
+    use ::config::genesis::{CliqueConfig, Genesis};
+    use ::chain::block::{Block, BlockContent};
+    use ::chain::chain::Chain;
+
+    #[test]
+    fn test_add_duplicate_block() {
+        let genesis = Genesis {
+            version: "test_version".to_string(),
+            clique: CliqueConfig {
+                block_period: 10,
+                signer_limit: 1
+            },
+            sealer: vec![]
+        };
+
+
+        let mut chain = Chain::new(genesis);
+        let genesis_id = chain.genesis_identifier_hash.clone();
+
+        let block = Block {
+            depth: 1,
+            data: BlockContent {
+                timestamp: 1,
+                transactions: vec![]
+            },
+            previous: genesis_id.clone(),
+            current: "1".to_string()
+        };
+
+        assert!(chain.blocks.len().eq(&1));
+
+        // first level
+        chain.add_block(block.clone());
+        chain.add_block(block.clone());
+
+        // genesis block and the first of the duplicates
+        assert!(chain.blocks.len().eq(&2));
+
+        // assert that adjacent matrix is also correct:
+        // i.e. only one child is present for the genesis block
+        assert!(chain.adjacent_matrix.get(&genesis_id.clone()).unwrap().len().eq(&1));
+    }
+
 }
