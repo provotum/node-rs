@@ -41,6 +41,8 @@ impl Chain {
         let bytes = bincode::serialize(&genesis).unwrap();
         let digest: String = Sha1::from(bytes).hexdigest();
 
+        trace!("Genesis block hash is: {:?}", genesis_block.current.clone());
+
         Chain {
             genesis_configuration_hash: digest,
             genesis_identifier_hash: genesis_block.current.clone(),
@@ -83,7 +85,6 @@ impl Chain {
     /// Therefore, invoke `has_parent_of_block` first.
     pub fn add_block(&mut self, block: Block) {
         // add block hash to its parent as child
-        trace!("Matrix before add: {:?}", self.adjacent_matrix);
         self.adjacent_matrix
             // in-place modification of the vector
             .entry(block.previous.clone())
@@ -99,8 +100,6 @@ impl Chain {
             // in-place modification of the vector
             .entry(block.current.clone())
             .or_insert(vec![]);
-
-        trace!("Matrix after add: {:?}", self.adjacent_matrix);
 
         // insert the block finally
         self.blocks.insert(block.current.clone(), block);

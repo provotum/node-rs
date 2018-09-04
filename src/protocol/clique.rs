@@ -59,7 +59,7 @@ impl CliqueProtocol {
         let expected_leader_index = current_block_number % self.signer_count;
         let am_i_leader = self.signer_index == expected_leader_index;
 
-        info!("Current block number is {}, expected leader is {}. Am I the leader? {}", current_block_number, expected_leader_index, am_i_leader);
+        trace!("Current block number is {}, expected leader is {}. Am I the leader? {}", current_block_number, expected_leader_index, am_i_leader);
 
         am_i_leader
     }
@@ -72,7 +72,7 @@ impl CliqueProtocol {
 
         let am_i_co_leader = self.signer_limit >= lower_leader_index_bound && self.signer_limit <= upper_leader_index_bound;
 
-        info!("Current block number is {}, leader idx bound is [{}..{}]. Am I co-leader? {}", current_block_number, lower_leader_index_bound, upper_leader_index_bound, am_i_co_leader);
+        trace!("Current block number is {}, leader index bound is [{}..{}]. Am I co-leader? {}", current_block_number, lower_leader_index_bound, upper_leader_index_bound, am_i_co_leader);
 
         am_i_co_leader
     }
@@ -111,7 +111,7 @@ impl CliqueProtocol {
         if self.is_co_leader() {
             trace!("Signing as co-leader and therefore adding wiggle time before broadcast");
             // add some "wiggle" time to let leader nodes announce their blocks first
-            let delay = time::Duration::from_millis(500);
+            let delay = time::Duration::from_millis(1000);
 
             thread::sleep(delay);
         }

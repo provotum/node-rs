@@ -40,7 +40,7 @@ impl Node {
     pub fn new(listen_address: SocketAddr, rpc_listen_address: SocketAddr, genesis: Genesis) -> Node {
         Node {
             // TODO: increase thread pool size for creating more connections
-            thread_pool: ThreadPool::new(3),
+            thread_pool: ThreadPool::new(4),
 
             listen_address: listen_address.clone(),
 
