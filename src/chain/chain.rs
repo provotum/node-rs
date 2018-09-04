@@ -10,6 +10,7 @@ use chain::chain_visitor::HeaviestBlockVisitor;
 use chain::chain_walker::LongestPathWalker;
 use chain::chain_walker::ChainWalker;
 
+#[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct Chain {
     /// the hash of the genesis configuration
     pub genesis_configuration_hash: String,
@@ -52,9 +53,7 @@ impl Chain {
     }
 
     pub fn get_current_block_number(&self) -> usize {
-        let depth = self.get_current_block().0;
-
-        depth + 1
+        self.get_current_block().0
     }
 
     pub fn get_current_block_timestamp(&self) -> u64 {
@@ -94,7 +93,10 @@ impl Chain {
             .entry(block.data.parent.clone())
             .and_modify(|parent_block_children| {
                 if ! parent_block_children.contains(&block.identifier.clone()) {
+                    info!("Adding block {:?} containing {:?} transactions to chain.", block.identifier.clone(), block.data.transactions.len());
                     parent_block_children.push(block.identifier.clone());
+                } else {
+                    trace!("Not adding block {:?} as it is already contained.", block.identifier.clone());
                 }
             });
 

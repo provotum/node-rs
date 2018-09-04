@@ -1,4 +1,5 @@
 use ::chain::block::Block;
+use ::chain::chain::Chain;
 use ::chain::transaction::Transaction;
 use serde_json;
 use std::str;
@@ -13,6 +14,9 @@ pub enum Message {
     BlockRequest(String),
     BlockPayload(Block),
     BlockAccept,
+    ChainRequest,
+    ChainResponse(Chain),
+    ChainAccept,
     None,
 }
 
@@ -38,7 +42,6 @@ impl Codec for JsonCodec {
 
         match result {
             Ok(json_message) => {
-                trace!("Encoded message {:?} into json {:?}", message, json_message);
                 return json_message;
             }
             Err(e) => {
@@ -55,7 +58,6 @@ impl Codec for JsonCodec {
 
         match result {
             Ok(message) => {
-                trace!("Decoded json message {:?} into {:?}", json_string, message);
                 return message;
             }
             Err(e) => {

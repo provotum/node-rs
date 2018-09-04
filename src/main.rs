@@ -5,18 +5,6 @@ extern crate node;
 extern crate log;
 extern crate simple_logger;
 
-use node::p2p::node::Node;
-use std::env;
-use std::vec::Vec;
-use node::config::genesis::Genesis;
-
-
-
-fn print_usage(program: &str, opts: &getopts::Options) {
-    let brief = format!("Usage: {} listen_address rpc_listen_address [options]", program);
-    print!("{}", opts.usage(&brief));
-}
-
 fn main() {
     // init logger
     simple_logger::init().unwrap();
@@ -28,7 +16,8 @@ fn main() {
     let program = args[0].clone();
 
     let mut opts = getopts::Options::new();
-    opts.optflag("c", "connect", "the address to which to connect");
+    opts.optflag("c", "connect", "let's the node connect to all known peers");
+    opts.optflag("s", "sign", "let's the node start signing blocks");
     opts.optflag("h", "", "print this help menu");
 
     if args.len() < 3 {
@@ -52,9 +41,24 @@ fn main() {
 
     node.listen();
     node.listen_rpc();
-    node.sign();
+
+    if matches.opt_present("s") {
+        node.sign();
+    }
 
     if matches.opt_present("c") {
         node.connect();
     }
+}
+use node::p2p::node::Node;
+use std::env;
+use std::vec::Vec;
+
+
+
+use node::config::genesis::Genesis;
+
+fn print_usage(program: &str, opts: &getopts::Options) {
+    let brief = format!("Usage: {} listen_address rpc_listen_address [options]", program);
+    print!("{}", opts.usage(&brief));
 }

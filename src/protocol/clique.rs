@@ -54,6 +54,23 @@ impl CliqueProtocol {
         }
     }
 
+    pub fn replace_chain(&mut self, chain: Chain) {
+        let own_chain_height = self.chain.get_current_block_number();
+        let other_chain_height = chain.get_current_block_number();
+
+        if ! chain.genesis_configuration_hash.eq(&self.chain.genesis_configuration_hash) {
+            debug!("Not replacing chain {} as its genesis configuration does not match ours.", chain.clone());
+            return;
+        }
+
+        debug!("My height: {}, other height: {}", own_chain_height, other_chain_height);
+
+        if  own_chain_height < other_chain_height {
+            debug!("Replacing own chain of length {:?} with remote chain of length {:?}", own_chain_height, other_chain_height);
+            self.chain = chain;
+        }
+    }
+
     fn is_leader(&self) -> bool {
         let current_block_number = self.chain.get_current_block_number();
         let expected_leader_index = current_block_number % self.signer_count;
@@ -70,7 +87,7 @@ impl CliqueProtocol {
         let lower_leader_index_bound = (current_block_number % self.signer_count) + 1;
         let upper_leader_index_bound = lower_leader_index_bound + self.signer_limit;
 
-        let am_i_co_leader = self.signer_limit >= lower_leader_index_bound && self.signer_limit <= upper_leader_index_bound;
+        let am_i_co_leader = (self.signer_index >= lower_leader_index_bound) && (self.signer_index <= upper_leader_index_bound);
 
         trace!("Current block number is {}, leader index bound is [{}..{}]. Am I co-leader? {}", current_block_number, lower_leader_index_bound, upper_leader_index_bound, am_i_co_leader);
 
@@ -94,7 +111,7 @@ impl CliqueProtocol {
 
     pub fn sign(&mut self) -> Option<Block> {
         if ! self.is_leader() && ! self.is_co_leader() {
-            trace!("Skipping to sign as not leader nor co-leader");
+            trace!("Skipping to sign as neither leader nor co-leader");
             return None;
         }
 
@@ -108,27 +125,35 @@ impl CliqueProtocol {
             return None;
         }
 
+        let current_block = self.chain.get_current_block();
+        let block = Block::new(
+            current_block.1.identifier.clone(),
+            self.transactions.clone()
+        );
+
         if self.is_co_leader() {
             trace!("Signing as co-leader and therefore adding wiggle time before broadcast");
             // add some "wiggle" time to let leader nodes announce their blocks first
             let delay = time::Duration::from_millis(1000);
 
             thread::sleep(delay);
-        }
 
-        let current_block = self.chain.get_current_block();
-        trace!("Current block before adding: {:?}", current_block.clone());
-        let block = Block::new(
-            current_block.1.identifier.clone(),
-            self.transactions.clone()
-        );
+            // check whether we already received the block from the leader
+            // -> no need to broadcast the block again
+            if self.chain.blocks.contains_key(&block.identifier.clone()) {
+                debug!("Skipping to broadcast block {:?} as already received from the leader.", block.identifier.clone());
+                return None;
+            }
+        }
 
         // reset current state again
         self.transactions = vec![];
 
         // add block to our chain as well
         self.chain.add_block(block.clone());
-        trace!("Current block after adding: {:?}", self.chain.get_current_block().clone());
+
+        let current_block_after_sign = self.chain.get_current_block();
+        debug!("Current block after signing has height {:?} and identifier {:?}", current_block_after_sign.0, current_block_after_sign.1.identifier);
 
         Some(block)
     }
@@ -153,12 +178,18 @@ impl ProtocolHandler for CliqueProtocol {
             Message::TransactionAccept => unimplemented!("Not yet implemented: Block accept"),
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
-                trace!("Adding block {:?}", block);
                 self.chain.add_block(block);
 
                 Message::TransactionAccept
             },
             Message::BlockAccept => Message::None,
+            Message::ChainRequest => Message::ChainResponse(self.chain.clone()),
+            Message::ChainResponse(chain) => {
+                self.replace_chain(chain);
+
+                Message::ChainAccept
+            },
+            Message::ChainAccept => Message::None,
         }
     }
 
@@ -180,6 +211,9 @@ impl ProtocolHandler for CliqueProtocol {
             Message::BlockRequest(_) => None,
             Message::BlockPayload(_) => None,
             Message::BlockAccept => None,
+            Message::ChainRequest => None,
+            Message::ChainResponse(_) => None,
+            Message::ChainAccept => None,
         }
     }
 }

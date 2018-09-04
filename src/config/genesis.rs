@@ -50,8 +50,9 @@ impl Genesis {
 
         assert!(genesis_data.version.len() > 0, "Version parameter must be specified");
         assert!(genesis_data.clique.block_period > 0, "Clique block period must be greater than zero");
-        // TODO: check this assert again: What if only signed by itself?
         assert!(genesis_data.sealer.len() > 0, "There must be at least a single sealer");
+
+        // TODO: if only one sealer -> what should the signer_limit value be?
 
         genesis_data
     }

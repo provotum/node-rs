@@ -1,54 +1,65 @@
-use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
-use std::collections::HashSet;
-use std::io::Write;
-use std::io::Read;
-use std::io::ErrorKind;
-use std::sync::{Arc, Mutex};
-use std::iter::FromIterator;
-use std::{thread, time};
-
-use ::p2p::thread::ThreadPool;
-use ::p2p::codec::{Codec, JsonCodec, Message};
-use ::protocol::clique::{CliqueProtocol, ProtocolHandler};
 use ::config::genesis::Genesis;
+use ::p2p::codec::{Codec, JsonCodec, Message};
+use ::p2p::thread::ThreadPool;
+use ::protocol::clique::{CliqueProtocol, ProtocolHandler};
+use std::{thread, time};
+use std::collections::HashSet;
+use std::io::ErrorKind;
+use std::io::Read;
+use std::io::Write;
+use std::iter::FromIterator;
+use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
 
 /// Forms a node in the blockchain.
 ///
 /// Each node manages its own thread pool on which it starts dedicated threads
 /// to listen for incoming connections. In addition, connection attempts to other
 /// nodes are also spawn on the thread pool.
-///
-/// Further, a node maintains a list of peers it has previously connected to or from
-/// which connection attempts have been made.
 pub struct Node {
+    /// A pool of threads maintaining tasks of this node
+    /// such as listening for incoming connections,
+    /// broadcasting messages or signing blocks.
     thread_pool: ThreadPool,
 
+    /// The address of this node on which it listens for
+    /// incoming messages of other nodes.
     listen_address: SocketAddr,
 
+    /// The address of this node on which it listens
+    /// for incoming RPC messages.
     rpc_listen_address: SocketAddr,
 
-    /// A cache of peers we have connected to
-    /// or from which we received connections.
+    /// A fixed set of peers to which this node should connect
+    /// and broadcast messages to.
+    ///
+    /// As this set is used among different threads, a
+    /// atomic reference counter (ARC) and a Mutex are used
+    /// to avoid concurrent overwrites.
     peers: Arc<Mutex<HashSet<SocketAddr>>>,
 
+    /// A protocol handling incoming messages to some
+    /// specified behaviour.
+    ///
+    /// As this protocol is used among different threads, a
+    /// atomic reference counter (ARC) and a Mutex are used
+    /// to avoid concurrent overwrites.
     protocol: Arc<Mutex<CliqueProtocol>>,
 }
 
 impl Node {
-
-    /// Creates a new node with the provided genesis configuration.
+    /// Creates a new node.
+    ///
+    /// - `listen_addr` The address on which the node listens for incoming messages.
+    /// - `rpc_listen_address` The address on which the node listens for incoming RPC messages.
+    /// - `genesis` The genesis configuration which defines the behaviour of this node.
+    ///             Must be equal for all nodes which should connect to the same network.
     pub fn new(listen_address: SocketAddr, rpc_listen_address: SocketAddr, genesis: Genesis) -> Node {
         Node {
-            // TODO: increase thread pool size for creating more connections
             thread_pool: ThreadPool::new(4),
-
             listen_address: listen_address.clone(),
-
             rpc_listen_address: rpc_listen_address.clone(),
-
-            // TODO: explain why we need an atomic reference and a mutex here
             peers: Arc::new(Mutex::new(HashSet::from_iter(genesis.sealer.iter().cloned()))),
-
             protocol: Arc::new(Mutex::new(CliqueProtocol::new(listen_address, genesis))),
         }
     }
@@ -73,14 +84,10 @@ impl Node {
 
                 // TODO: Drop connection if not from authorized node
 
-                trace!("handling incoming node connection");
-
                 let mut buffer_str = String::new();
                 let result = cloned_stream.read_to_string(&mut buffer_str);
                 match result {
                     Ok(amount_bytes_received) => {
-                        trace!("Read {:?} bytes from incoming connection", amount_bytes_received);
-
                         if 0 == amount_bytes_received {
                             trace!("No bytes received on incoming connection. Dropping connection without response");
                             let shutdown_result = cloned_stream.shutdown(Shutdown::Both);
@@ -101,9 +108,10 @@ impl Node {
                     }
                 }
 
-                trace!("Read string from incoming connection: {:?}. Converting into message", buffer_str);
                 let request = JsonCodec::decode(buffer_str);
+                trace!("Got request message {:?} from {:?}", request.clone(), cloned_stream.peer_addr());
                 let response = cloned_clique_protocol_handler.lock().unwrap().handle(request);
+                trace!("Sending response message {:?} to {:?}", response.clone(), cloned_stream.peer_addr());
                 let encoded_response = JsonCodec::encode(response);
 
                 // send some data back
@@ -140,8 +148,6 @@ impl Node {
                 let result = stream.read_to_string(&mut buffer_str);
                 match result {
                     Ok(amount_bytes_received) => {
-                        trace!("Read {:?} bytes from incoming connection", amount_bytes_received);
-
                         if 0 == amount_bytes_received {
                             trace!("No bytes received on incoming connection. Dropping connection without response");
                             let shutdown_result = stream.shutdown(Shutdown::Both);
@@ -162,22 +168,23 @@ impl Node {
                     }
                 }
 
-                trace!("Read string from incoming connection: {:?}. Converting into message", buffer_str);
                 let request = JsonCodec::decode(buffer_str);
+                trace!("Got RPC request message {:?} from {:?}", request.clone(), stream.peer_addr());
                 let needs_response = cloned_clique_protocol_handler.lock().unwrap().handle_rpc(request);
 
                 match needs_response {
                     None => {
-                        trace!("RPC does not require any response. Closing stream");
+                        trace!("RPC does not require any response. Closing stream to {:?}", stream.peer_addr());
                         let shutdown_result = stream.shutdown(Shutdown::Both);
                         match shutdown_result {
                             Ok(()) => {}
                             // happens when the peer already closed the connection
                             Err(ref e) if e.kind() == ErrorKind::NotConnected => {}
-                            Err(e) => { trace!("Could not shutdown incoming RPC connection: {:?}", e) }
+                            Err(e) => { trace!("Could not shutdown incoming RPC connection to {:?}: {:?}", stream.peer_addr(), e) }
                         }
-                    },
+                    }
                     Some((response, broadcast_response)) => {
+                        trace!("Sending RPC response message {:?} to {:?}", response.clone(), stream.peer_addr());
                         let encoded_response = JsonCodec::encode(response);
 
                         // send some data back
@@ -204,8 +211,6 @@ impl Node {
 
                             match stream {
                                 Ok(mut stream) => {
-                                    trace!("Sending to {:?}", stream.peer_addr());
-
                                     Node::handle_outgoing_connection(&mut stream, broadcast_response.clone());
                                 }
                                 Err(e) => {
@@ -221,7 +226,6 @@ impl Node {
 
     /// Send a Ping message to all known peers
     pub fn connect(&mut self) {
-
         // create a reference which we can share across threads
         let peers = Arc::clone(&self.peers);
 
@@ -232,12 +236,22 @@ impl Node {
             }
 
             let stream = TcpStream::connect(&peer_addr);
+            let protocol = Arc::clone(&self.protocol);
 
             match stream {
                 Ok(mut stream) => {
                     trace!("Successfully connected to {:?}", stream.peer_addr());
 
-                    Node::handle_outgoing_connection(&mut stream, Message::Ping);
+                    // request the chain of the other node
+                    let response = Node::handle_outgoing_connection(&mut stream, Message::ChainRequest);
+                    match response {
+                        Some(message) => {
+                            protocol.lock().unwrap().handle(message);
+                        },
+                        None => {
+                            // noop
+                        }
+                    }
                 }
                 Err(e) => {
                     warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
@@ -254,22 +268,21 @@ impl Node {
 
         self.thread_pool.execute(move || {
             loop {
-                trace!("Starting to collect any transactions to add to a block and broadcast");
                 let cloned_clique_protocol_handler: Arc<Mutex<CliqueProtocol>> = Arc::clone(&clique_protocol_handler);
                 let cloned_peers = Arc::clone(&peers);
 
-                let delay = time::Duration::from_millis(5000);
+                let delay = time::Duration::from_millis(1000);
 
                 let something_to_broadcast = cloned_clique_protocol_handler.lock().unwrap().sign();
 
                 match something_to_broadcast {
                     None => {
-                        info!("No block to broadcast");
+                        trace!("No need to broadcast a block. Waiting...");
                         // wait until next try
                         thread::sleep(delay);
-                    },
+                    }
                     Some(block) => {
-                        info!("Broadcasting block {:?}", block);
+                        info!("Broadcasting block {:?}", block.identifier.clone());
                         // broadcast new block
                         for peer_addr in cloned_peers.lock().unwrap().iter() {
                             if own_address.clone().eq(peer_addr) {
@@ -299,9 +312,7 @@ impl Node {
         });
     }
 
-    fn handle_outgoing_connection(stream: &mut TcpStream, message: Message) {
-        trace!("handling outgoing connection");
-
+    fn handle_outgoing_connection(stream: &mut TcpStream, message: Message) -> Option<Message> {
         let request = JsonCodec::encode(message);
 
         stream.write_all(&request.into_bytes()).unwrap();
@@ -312,11 +323,9 @@ impl Node {
             Err(e) => {
                 trace!("Could not shutdown outgoing write connection: {:?}", e);
 
-                return;
+                return None;
             }
         }
-
-        trace!("flushed written data");
 
         // wait for some incoming data on the same stream
         let mut buffer_str = String::new();
@@ -324,8 +333,6 @@ impl Node {
 
         match read_result {
             Ok(amount_bytes_received) => {
-                trace!("Read {:?} bytes from outgoing connection", amount_bytes_received);
-
                 if 0 == amount_bytes_received {
                     trace!("No bytes received on outgoing connection. Dropping connection without response");
                     let shutdown_result = stream.shutdown(Shutdown::Both);
@@ -336,18 +343,19 @@ impl Node {
                         }
                     }
 
-                    return;
+                    return None;
                 }
             }
             Err(e) => {
                 trace!("Failed to read bytes from incoming connection: {:?}", e);
 
-                return;
+                return None;
             }
         }
 
         let response = JsonCodec::decode(buffer_str);
-
         trace!("Got response from outgoing stream: {:?}", response);
+
+        return Some(response);
     }
 }

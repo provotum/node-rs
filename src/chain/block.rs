@@ -5,14 +5,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ::chain::transaction::Transaction;
 
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct BlockContent {
     pub parent: String,
     pub timestamp: u64,
     pub transactions: Vec<Transaction>,
 }
 
-#[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
+#[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub identifier: String,
     pub data: BlockContent,
