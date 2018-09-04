@@ -59,7 +59,7 @@ impl CliqueProtocol {
         let other_chain_height = chain.get_current_block_number();
 
         if ! chain.genesis_configuration_hash.eq(&self.chain.genesis_configuration_hash) {
-            debug!("Not replacing chain {} as its genesis configuration does not match ours.", chain.clone());
+            debug!("Not replacing chain {:?} as its genesis configuration does not match ours.", chain.clone());
             return;
         }
 
@@ -161,8 +161,6 @@ impl CliqueProtocol {
 
 impl ProtocolHandler for CliqueProtocol {
     fn handle(&mut self, message: Message) -> Message {
-        // TODO: actually handle message
-
         match message {
             Message::None => Message::None,
             Message::Ping => Message::Pong,

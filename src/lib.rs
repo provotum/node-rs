@@ -14,7 +14,7 @@ extern crate serde_json;
 
 #[macro_use]
 extern crate log;
-extern crate simple_logger;
+extern crate pretty_env_logger;
 
 extern crate sha1;
 extern crate bincode;

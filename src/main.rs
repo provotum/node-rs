@@ -3,11 +3,20 @@ extern crate getopts;
 extern crate node;
 
 extern crate log;
-extern crate simple_logger;
+extern crate pretty_env_logger;
+extern crate env_logger;
+
+use env_logger::Target;
 
 fn main() {
     // init logger
-    simple_logger::init().unwrap();
+    pretty_env_logger::formatted_builder().unwrap()
+        //let's just set some random stuff.. for more see
+        //https://docs.rs/env_logger/0.5.0-rc.1/env_logger/struct.Builder.html
+        .target(Target::Stdout)
+        .parse("node=trace")
+        .init();
+
 
     // get configuration
     let genesis = Genesis::new("genesis.json");
