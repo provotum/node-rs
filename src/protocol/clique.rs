@@ -17,7 +17,7 @@ pub trait ProtocolHandler {
     /// Returns a pair of messages, whereas the first is meant to be sent
     /// to the client from which we are receiving the message, and the
     /// second is meant to be broadcast to all other known peers.
-    fn handle_rpc(&mut self, message: Message) -> (Message, Message);
+    fn handle_rpc(&mut self, message: Message) -> Option<(Message, Message)>;
 }
 
 pub struct CliqueProtocol {
@@ -72,6 +72,21 @@ impl CliqueProtocol {
 
         am_i_co_leader
     }
+
+    fn on_transaction_receive(&mut self, transaction: Transaction) {
+        if ! transaction.is_valid() {
+            return;
+        }
+
+        if self.transactions.contains(&transaction) {
+            return;
+        }
+
+        if self.is_leader() || self.is_co_leader() {
+            trace!("We are either leader or co-leader and therefore adding transaction {:?}", transaction.clone());
+            self.transactions.push(transaction);
+        }
+    }
 }
 
 impl ProtocolHandler for CliqueProtocol {
@@ -83,7 +98,10 @@ impl ProtocolHandler for CliqueProtocol {
             Message::Ping => Message::Pong,
             Message::Pong => Message::None,
             Message::TransactionPayload(transaction) => {
-                self.transactions.push(transaction);
+                // if we received the transaction from another node
+                // there is no need to broadcast it again, as this
+                // was the task of the node from which we've received it.
+                self.on_transaction_receive(transaction);
 
                 Message::TransactionAccept
             },
@@ -94,20 +112,24 @@ impl ProtocolHandler for CliqueProtocol {
         }
     }
 
-    fn handle_rpc(&mut self, message: Message) -> (Message, Message) {
+    fn handle_rpc(&mut self, message: Message) -> Option<(Message, Message)> {
         match message {
-            Message::None => (Message::None, Message::None),
-            Message::Ping => (Message::None, Message::None),
-            Message::Pong => (Message::None, Message::None),
+            Message::None => None,
+            Message::Ping => None,
+            Message::Pong => None,
             Message::TransactionPayload(transaction) => {
-                self.transactions.push(transaction.clone());
+                // we've received the transaction from a client,
+                // which means that we have to add it to our set of known
+                // transactions (in case we are a co-/leader) and then
+                // notify all other nodes in the network about this new transaction.
+                self.on_transaction_receive(transaction.clone());
 
-                (Message::TransactionAccept, Message::TransactionPayload(transaction))
+                Some((Message::TransactionAccept, Message::TransactionPayload(transaction)))
             },
-            Message::TransactionAccept => (Message::None, Message::None),
-            Message::BlockRequest(_) => (Message::None, Message::None),
-            Message::BlockPayload(_) => (Message::None, Message::None),
-            Message::BlockAccept => (Message::None, Message::None),
+            Message::TransactionAccept => None,
+            Message::BlockRequest(_) => None,
+            Message::BlockPayload(_) => None,
+            Message::BlockAccept => None,
         }
     }
 }

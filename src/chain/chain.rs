@@ -6,10 +6,15 @@ use sha1::Sha1;
 use ::chain::block::Block;
 use ::chain::transaction::Transaction;
 use ::config::genesis::Genesis;
+use chain::chain_visitor::HeaviestBlockVisitor;
+use chain::chain_walker::LongestPathWalker;
+use chain::chain_walker::ChainWalker;
 
 pub struct Chain {
     /// the hash of the genesis configuration
     pub genesis_configuration_hash: String,
+    /// the hash of the genesis block
+    pub genesis_identifier_hash: String,
     /// all known blocks
     pub blocks: HashMap<String, Block>,
     /// a matrix creating the relation between blocks
@@ -20,17 +25,16 @@ impl Chain {
 
     pub fn new(genesis: Genesis) -> Self {
         // create the genesis block with an empty hash and no transactions
-        let genesis_block_hash = String::new();
         let trxs: Vec<Transaction> = vec![];
-        let genesis_block: Block = Block::new(genesis_block_hash.clone(), trxs);
+        let genesis_block: Block = Block::new(0,String::new(), trxs);
 
         let mut blocks = HashMap::new();
-        blocks.insert(genesis_block_hash.clone(), genesis_block.clone());
+        blocks.insert(genesis_block.current.clone(), genesis_block.clone());
 
         // Add an entry for the genesis block in the adjacent matrix,
         // i.e. initialize children of the genesis block as an empty vector.
         let mut adjacent_matrix: HashMap<String, Vec<String>> = HashMap::new();
-        adjacent_matrix.insert(genesis_block_hash, vec![]);
+        adjacent_matrix.insert(genesis_block.current.clone(), vec![]);
 
         // Create a sha1 digest of the genesis configuration so that we can later
         // ensure, that we only accept blocks from a chain with the same configuration.
@@ -39,16 +43,24 @@ impl Chain {
 
         Chain {
             genesis_configuration_hash: digest,
+            genesis_identifier_hash: genesis_block.current.clone(),
             blocks,
             adjacent_matrix
         }
     }
 
     pub fn get_current_block_number(&self) -> usize {
-        // TODO: implement
-        unimplemented!("not yet implemented");
+        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let longest_path_walker = LongestPathWalker::new();
+        longest_path_walker.visit_chain(&self, &mut heaviest_block_walker);
 
-        0
+        let option = heaviest_block_walker.heaviest_block;
+        assert!(option.is_some());
+        let heaviest_block_reference = option.unwrap();
+
+        let depth = self.blocks.get(&heaviest_block_reference).unwrap().depth;
+
+        depth + 1
     }
 
     /// Returns true, if the parent of the given block exists, false otherwise.

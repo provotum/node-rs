@@ -14,7 +14,7 @@ pub trait ChainWalker {
     ///
     /// - `chain` The chain to walk.
     /// - `visitor` The visitor to invoke during chain traversal.
-    fn visit_chain<F: ChainVisitor>(&self, chain: Chain, visitor: &mut F);
+    fn visit_chain<F: ChainVisitor>(&self, chain: &Chain, visitor: &mut F);
 }
 
 /// The longest path walker walks the given chain to find
@@ -59,10 +59,10 @@ impl ChainWalker for LongestPathWalker {
     /// - `visitor`: A visitor which should be invoked with the deepest block found.
     ///
     /// A visitor can be of any type as long as it implements the trait `ChainVisitor`.
-    fn visit_chain<F: ChainVisitor>(&self, chain: Chain, visitor: &mut F) {
-        let genesis_children = chain.adjacent_matrix.get(String::new().as_str()).unwrap();
+    fn visit_chain<F: ChainVisitor>(&self, chain: &Chain, visitor: &mut F) {
+        let genesis_children = chain.adjacent_matrix.get(chain.genesis_identifier_hash.clone().as_str()).unwrap();
 
-        let mut most_deepest_block = (0, String::new());
+        let mut most_deepest_block = (0, chain.genesis_identifier_hash.clone());
         for genesis_child_hash in genesis_children.iter() {
             let genesis_child = chain.blocks.get(genesis_child_hash).unwrap();
 
@@ -109,6 +109,7 @@ mod chain_walker_test {
         let mut chain = Chain::new(genesis);
         // first level
         chain.add_block(Block {
+            depth: 1,
             data: BlockContent {
                 timestamp: 1,
                 transactions: vec![]
@@ -119,6 +120,7 @@ mod chain_walker_test {
 
         // second level
         chain.add_block(Block {
+            depth: 2,
             data: BlockContent {
                 timestamp: 2,
                 transactions: vec![]
@@ -128,6 +130,7 @@ mod chain_walker_test {
         });
 
         chain.add_block(Block {
+            depth: 2,
             data: BlockContent {
                 timestamp: 3,
                 transactions: vec![]
@@ -138,6 +141,7 @@ mod chain_walker_test {
 
         // third level
         chain.add_block(Block {
+            depth: 3,
             data: BlockContent {
                 timestamp: 4,
                 transactions: vec![]
@@ -148,6 +152,7 @@ mod chain_walker_test {
 
         // fourth level
         chain.add_block(Block {
+            depth: 4,
             data: BlockContent {
                 timestamp: 5,
                 transactions: vec![]
@@ -158,12 +163,36 @@ mod chain_walker_test {
 
         let mut heaviest_block_walker = HeaviestBlockVisitor::new();
         let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(chain, &mut heaviest_block_walker);
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
 
         let option = heaviest_block_walker.heaviest_block;
         assert!(option.is_some());
         let expected_heaviest_block = option.unwrap();
         assert!(expected_heaviest_block.eq(&"4".to_string()));
+    }
+
+    #[test]
+    fn test_longest_path_for_empty_chain() {
+        let genesis = Genesis {
+            version: "test_version".to_string(),
+            clique: CliqueConfig {
+                block_period: 10,
+                signer_limit: 1
+            },
+            sealer: vec![]
+        };
+
+
+        let mut chain = Chain::new(genesis);
+
+        let mut heaviest_block_walker = HeaviestBlockVisitor::new();
+        let longest_path_walker = LongestPathWalker::new();
+        longest_path_walker.visit_chain(&chain, &mut heaviest_block_walker);
+
+        let option = heaviest_block_walker.heaviest_block;
+        assert!(option.is_some());
+        let expected_heaviest_block = option.unwrap();
+        assert!(chain.blocks.get(expected_heaviest_block.as_str()).unwrap().depth.eq(&0));
     }
 
 }

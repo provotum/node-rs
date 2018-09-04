@@ -13,6 +13,7 @@ pub struct BlockContent {
 
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
+    pub depth: usize,
     pub data: BlockContent,
     pub previous: String,
     pub current: String
@@ -24,7 +25,7 @@ impl Block {
     ///
     /// - `previous_hash`: The hash of the previous block
     /// - `transactions`` A vector of transactions figuring as the data of this block
-    pub fn new(previous_hash: String, transactions: Vec<Transaction>) -> Self {
+    pub fn new(depth: usize, previous_hash: String, transactions: Vec<Transaction>) -> Self {
         let now = SystemTime::now();
         let since_the_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
 
@@ -39,6 +40,7 @@ impl Block {
         let digest = Sha1::from(bytes).hexdigest();
 
         Block {
+            depth,
             data: block_content,
             previous: previous_hash,
             current: digest

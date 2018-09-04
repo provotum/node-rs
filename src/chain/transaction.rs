@@ -11,4 +11,8 @@ pub struct Transaction {
 
 impl Transaction {
 
+    pub fn is_valid(&self) -> bool {
+        // TODO:
+        return true;
+    }
 }

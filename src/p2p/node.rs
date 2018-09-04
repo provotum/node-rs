@@ -163,39 +163,54 @@ impl Node {
 
                 trace!("Read string from incoming connection: {:?}. Converting into message", buffer_str);
                 let request = JsonCodec::decode(buffer_str);
-                let (response, broadcast_response) = cloned_clique_protocol_handler.lock().unwrap().handle_rpc(request);
-                let encoded_response = JsonCodec::encode(response);
+                let needs_response = cloned_clique_protocol_handler.lock().unwrap().handle_rpc(request);
 
-                // send some data back
-                let mut stream_clone = stream.try_clone().unwrap();
-                stream_clone.write_all(&encoded_response.into_bytes()).unwrap();
-                stream_clone.flush().unwrap();
-
-                let shutdown_result = stream_clone.shutdown(Shutdown::Read);
-                match shutdown_result {
-                    Ok(()) => {}
-                    // happens when the peer already closed the connection
-                    Err(ref e) if e.kind() == ErrorKind::NotConnected => {}
-                    Err(e) => { trace!("Could not shutdown incoming connection: {:?}", e) }
-                }
-
-                // now broadcast the message to all other peers
-                for peer_addr in known_peers.lock().unwrap().iter() {
-                    if own_address.eq(peer_addr) {
-                        // avoid connecting to ourselves
-                        continue;
-                    }
-
-                    let stream = TcpStream::connect(&peer_addr);
-
-                    match stream {
-                        Ok(mut stream) => {
-                            trace!("Sending to {:?}", stream.peer_addr());
-
-                            Node::handle_outgoing_connection(&mut stream, broadcast_response.clone());
+                match needs_response {
+                    None => {
+                        trace!("RPC does not require any response. Closing stream");
+                        let shutdown_result = stream.shutdown(Shutdown::Both);
+                        match shutdown_result {
+                            Ok(()) => {}
+                            // happens when the peer already closed the connection
+                            Err(ref e) if e.kind() == ErrorKind::NotConnected => {}
+                            Err(e) => { trace!("Could not shutdown incoming RPC connection: {:?}", e) }
                         }
-                        Err(e) => {
-                            warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
+                    },
+                    Some((response, broadcast_response)) => {
+                        let encoded_response = JsonCodec::encode(response);
+
+                        // send some data back
+                        let mut stream_clone = stream.try_clone().unwrap();
+                        stream_clone.write_all(&encoded_response.into_bytes()).unwrap();
+                        stream_clone.flush().unwrap();
+
+                        let shutdown_result = stream_clone.shutdown(Shutdown::Read);
+                        match shutdown_result {
+                            Ok(()) => {}
+                            // happens when the peer already closed the connection
+                            Err(ref e) if e.kind() == ErrorKind::NotConnected => {}
+                            Err(e) => { trace!("Could not shutdown incoming connection: {:?}", e) }
+                        }
+
+                        // now broadcast the message to all other peers
+                        for peer_addr in known_peers.lock().unwrap().iter() {
+                            if own_address.eq(peer_addr) {
+                                // avoid connecting to ourselves
+                                continue;
+                            }
+
+                            let stream = TcpStream::connect(&peer_addr);
+
+                            match stream {
+                                Ok(mut stream) => {
+                                    trace!("Sending to {:?}", stream.peer_addr());
+
+                                    Node::handle_outgoing_connection(&mut stream, broadcast_response.clone());
+                                }
+                                Err(e) => {
+                                    warn!("Failed to connect to {:?} due to {:?}", peer_addr, e);
+                                }
+                            }
                         }
                     }
                 }
