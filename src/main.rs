@@ -14,18 +14,16 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 fn main() {
-    // init logger
-    pretty_env_logger::formatted_builder().unwrap()
-        //let's just set some random stuff.. for more see
-        //https://docs.rs/env_logger/0.5.0-rc.1/env_logger/struct.Builder.html
-        .target(Target::Stdout)
-        .parse("node_rs=trace")
-        .init();
-
     let matches = App::new("node_rs")
         .version("0.1.0")
         .author("Raphael Matile <raphael.matile@gmail.com>")
         .about("Run a blockchain node")
+        .arg(Arg::with_name("verbosity")
+             .help("Turn up the verbosity of the log output")
+             .short("v")
+             .long("verbosity")
+             .multiple(true)
+        )
         .subcommand(
             SubCommand::with_name("start")
                 .about("Start a new node")
@@ -53,6 +51,22 @@ fn main() {
                 )
         )
         .get_matches();
+
+    let log_filter;
+    match matches.occurrences_of("verbosity") {
+        0 => { log_filter = "node_rs=info" },
+        1 => { log_filter = "node_rs=debug" },
+        2 => { log_filter = "node_rs=trace" },
+        _ => { log_filter = "node_rs=trace" },
+    }
+
+    // init logger
+    pretty_env_logger::formatted_builder().unwrap()
+        //let's just set some random stuff.. for more see
+        //https://docs.rs/env_logger/0.5.0-rc.1/env_logger/struct.Builder.html
+        .target(Target::Stdout)
+        .parse(log_filter)
+        .init();
 
 
     match matches.subcommand_name() {
