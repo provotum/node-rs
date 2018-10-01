@@ -188,6 +188,10 @@ impl ProtocolHandler for CliqueProtocol {
                 Message::ChainAccept
             },
             Message::ChainAccept => Message::None,
+            Message::OpenVote => Message::OpenVoteAccept,
+            Message::OpenVoteAccept => Message::None,
+            Message::CloseVote => Message::CloseVoteAccept,
+            Message::CloseVoteAccept => Message::None
         }
     }
 
@@ -212,6 +216,10 @@ impl ProtocolHandler for CliqueProtocol {
             Message::ChainRequest => None,
             Message::ChainResponse(_) => None,
             Message::ChainAccept => None,
+            Message::OpenVote => None,
+            Message::OpenVoteAccept => None,
+            Message::CloseVote => None,
+            Message::CloseVoteAccept => None
         }
     }
 }
