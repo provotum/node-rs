@@ -1,9 +1,8 @@
 #![crate_type = "lib"]
-#![crate_name = "node"]
+#![crate_name = "node_rs"]
 
 extern crate futures;
 extern crate bytes;
-extern crate getopts;
 extern crate rand;
 extern crate uuid;
 
@@ -19,7 +18,7 @@ extern crate pretty_env_logger;
 extern crate sha1;
 extern crate bincode;
 
-
+extern crate num;
 extern crate crypto_rs;
 
 pub mod p2p;

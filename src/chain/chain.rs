@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 use std::vec::Vec;
-use bincode;
-use sha1::Sha1;
 
 use ::chain::block::Block;
 use ::chain::transaction::Transaction;
-use ::config::genesis::Genesis;
 use chain::chain_visitor::HeaviestBlockVisitor;
-use chain::chain_walker::LongestPathWalker;
+use chain::chain_walker::HeaviestBlockWalker;
 use chain::chain_walker::ChainWalker;
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
@@ -19,12 +16,13 @@ pub struct Chain {
     /// all known blocks
     pub blocks: HashMap<String, Block>,
     /// a matrix creating the relation between blocks
+    /// key is the parent, values are its children
     pub adjacent_matrix: HashMap<String, Vec<String>>
 }
 
 impl Chain {
 
-    pub fn new(genesis: Genesis) -> Self {
+    pub fn new(genesis_hash: String) -> Self {
         // create the genesis block with an empty hash and no transactions
         let trxs: Vec<Transaction> = vec![];
         let genesis_block: Block = Block::new(String::new(), trxs);
@@ -37,15 +35,10 @@ impl Chain {
         let mut adjacent_matrix: HashMap<String, Vec<String>> = HashMap::new();
         adjacent_matrix.insert(genesis_block.identifier.clone(), vec![]);
 
-        // Create a sha1 digest of the genesis configuration so that we can later
-        // ensure, that we only accept blocks from a chain with the same configuration.
-        let bytes = bincode::serialize(&genesis).unwrap();
-        let digest: String = Sha1::from(bytes).hexdigest();
-
         trace!("Genesis block hash is: {:?}", genesis_block.identifier.clone());
 
         Chain {
-            genesis_configuration_hash: digest,
+            genesis_configuration_hash: genesis_hash,
             genesis_identifier_hash: genesis_block.identifier.clone(),
             blocks,
             adjacent_matrix
@@ -62,8 +55,8 @@ impl Chain {
 
     pub fn get_current_block(&self) -> (usize, Block) {
         let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
-        let longest_path_walker = LongestPathWalker::new();
-        longest_path_walker.visit_chain(&self, &mut heaviest_block_visitor);
+        let longest_path_walker = HeaviestBlockWalker::new();
+        longest_path_walker.walk_chain(&self, &mut heaviest_block_visitor);
 
         let heaviest_block_height_option = heaviest_block_visitor.height;
         assert!(heaviest_block_height_option.is_some());
@@ -115,23 +108,12 @@ impl Chain {
 #[cfg(test)]
 mod chain_test {
 
-    use ::config::genesis::{CliqueConfig, Genesis};
     use ::chain::block::{Block, BlockContent};
     use ::chain::chain::Chain;
 
     #[test]
     fn test_add_duplicate_block() {
-        let genesis = Genesis {
-            version: "test_version".to_string(),
-            clique: CliqueConfig {
-                block_period: 10,
-                signer_limit: 1
-            },
-            sealer: vec![]
-        };
-
-
-        let mut chain = Chain::new(genesis);
+        let mut chain = Chain::new(String::new());
         let genesis_id = chain.genesis_identifier_hash.clone();
 
         let block = Block {

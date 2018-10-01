@@ -1,4 +1,6 @@
 use ::chain::block::Block;
+use crypto_rs::el_gamal::ciphertext::CipherText;
+use crypto_rs::el_gamal::additive::Operate;
 
 pub trait ChainVisitor {
     fn visit_block(&mut self, height: usize, block: &Block);
@@ -39,6 +41,30 @@ impl ChainVisitor for HeaviestBlockVisitor {
                 self.height = Some(height);
                 self.heaviest_block = Some(block.identifier.clone());
             }
+        }
+    }
+}
+
+pub struct SumCipherTextVisitor {
+    pub sum_cipher_text: CipherText,
+    pub total_votes: usize
+}
+
+impl SumCipherTextVisitor {
+    pub fn new(zero_cipher_text: CipherText) -> SumCipherTextVisitor {
+        SumCipherTextVisitor {
+            sum_cipher_text: zero_cipher_text,
+            total_votes: 0
+        }
+    }
+}
+
+impl ChainVisitor for SumCipherTextVisitor {
+    fn visit_block(&mut self, _height: usize, block: &Block) {
+        // homomorphically add the cipher text
+        for transaction in block.data.transactions.clone() {
+            self.sum_cipher_text = self.sum_cipher_text.clone().operate(transaction.cipher_text);
+            self.total_votes += 1;
         }
     }
 }

@@ -201,6 +201,7 @@ impl Node {
                         }
 
                         // now broadcast the message to all other peers
+                        trace!("Broadcast RPC handler message {:?}", broadcast_response.clone());
                         for peer_addr in known_peers.lock().unwrap().iter() {
                             if own_address.eq(peer_addr) {
                                 // avoid connecting to ourselves

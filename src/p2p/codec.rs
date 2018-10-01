@@ -1,6 +1,7 @@
 use ::chain::block::Block;
 use ::chain::chain::Chain;
 use ::chain::transaction::Transaction;
+use ::protocol::clique::VotingInformation;
 use serde_json;
 use std::str;
 
@@ -21,6 +22,8 @@ pub enum Message {
     OpenVoteAccept,
     CloseVote,
     CloseVoteAccept,
+    RequestTally,
+    RequestTallyPayload(VotingInformation),
     None,
 }
 
