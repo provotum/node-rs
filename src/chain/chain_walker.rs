@@ -145,7 +145,6 @@ impl ChainWalker for LongestPathWalker {
 
         // visit the block being at the most deepest position
         let deepest_block = chain.blocks.get(current_deepest_block.1.as_str()).unwrap();
-        visitor.visit_block(current_deepest_block.0, deepest_block);
         LongestPathWalker::traverse_bottom_up(current_deepest_block.0, deepest_block, chain, visitor);
     }
 }
@@ -155,14 +154,21 @@ mod chain_walker_test {
 
     use ::chain::block::{Block, BlockContent};
     use ::chain::chain::Chain;
-    use ::chain::chain_visitor::HeaviestBlockVisitor;
-    use ::chain::chain_walker::{ChainWalker, HeaviestBlockWalker};
+    use ::chain::chain_visitor::{HeaviestBlockVisitor, SumCipherTextVisitor};
+    use ::chain::chain_walker::{ChainWalker, HeaviestBlockWalker, LongestPathWalker};
+    use ::chain::transaction::Transaction;
+    use crypto_rs::el_gamal::encryption::{encrypt, PublicKey};
+    use crypto_rs::el_gamal::ciphertext::CipherText;
+    use crypto_rs::el_gamal::membership_proof::MembershipProof;
+    use crypto_rs::arithmetic::mod_int::ModInt;
+    use crypto_rs::cai::uciv::{CaiProof, PreImageSet, ImageSet};
+    use num::One;
 
     /// Test that the longest chain is found if no conflicting
     /// branch is present, i.e. a branch having the exact amount of children
     /// as another once.
     #[test]
-    fn test_longest_path() {
+    fn test_heaviest_path() {
         let mut chain = Chain::new(String::new());
         let genesis_id = chain.genesis_identifier_hash.clone();
 
@@ -231,7 +237,7 @@ mod chain_walker_test {
     }
 
     #[test]
-    fn test_longest_path_for_two_blocks() {
+    fn test_heaviest_path_for_two_blocks() {
         let mut chain = Chain::new(String::new());
         let genesis_id = chain.genesis_identifier_hash.clone();
 
@@ -261,7 +267,7 @@ mod chain_walker_test {
     }
 
     #[test]
-    fn test_longest_path_for_empty_chain() {
+    fn test_heaviest_path_for_empty_chain() {
         let chain = Chain::new(String::new());
 
         let mut heaviest_block_visitor = HeaviestBlockVisitor::new();
@@ -276,6 +282,58 @@ mod chain_walker_test {
         assert!(option.is_some());
         let expected_heaviest_block = option.unwrap();
         assert!(chain.blocks.get(expected_heaviest_block.as_str()).unwrap().data.parent.eq(&String::new()));
+    }
+
+    #[test]
+    fn test_longest_path_sum() {
+        let mut chain = Chain::new(String::new());
+        let genesis_id = chain.genesis_identifier_hash.clone();
+
+        let public_key = PublicKey {
+            p: ModInt::one(),
+            q: ModInt::one(),
+            h: ModInt::one(),
+            g: ModInt::one(),
+        };
+
+        let cipher_text = CipherText {
+            big_h: ModInt::one(),
+            big_g: ModInt::one(),
+            random: ModInt::one()
+        };
+
+        let pre_image_set = PreImageSet {
+            pre_images: vec![ModInt::one()]
+        };
+
+        let image_set = ImageSet {
+            images: vec![ModInt::one()]
+        };
+
+        let trx = Transaction {
+            voter_idx: 0,
+            cipher_text: cipher_text.clone(),
+            membership_proof: MembershipProof::new(public_key.clone(), ModInt::one(), cipher_text.clone(), vec![ModInt::one()]),
+            cai_proof: CaiProof::new(public_key.clone(), cipher_text.clone(), pre_image_set.clone(), image_set.clone(), 0, vec![ModInt::one()]),
+        };
+
+        // first level
+        chain.add_block(Block {
+            identifier: "1".to_string(),
+            data: BlockContent {
+                parent: genesis_id,
+                timestamp: 1,
+                transactions: vec![trx.clone()]
+            }
+        });
+
+        let cipher_text = encrypt(&public_key.clone(), ModInt::one());
+
+        let mut sum_cipher_text_visitor = SumCipherTextVisitor::new(cipher_text);
+        let longest_path_walker = LongestPathWalker::new();
+        longest_path_walker.walk_chain(&chain, &mut sum_cipher_text_visitor);
+
+        assert_eq!(1, sum_cipher_text_visitor.total_votes);
     }
 
 }

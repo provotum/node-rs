@@ -9,7 +9,7 @@ use bincode;
 use crypto_rs::arithmetic::mod_int::ModInt;
 use crypto_rs::el_gamal::ciphertext::CipherText;
 use crypto_rs::el_gamal::encryption::encrypt;
-use num::One;
+use num::Zero;
 use sha1::Sha1;
 use std::{thread, time};
 use std::net::SocketAddr;
@@ -80,7 +80,7 @@ impl CliqueProtocol {
         let bytes = bincode::serialize(&genesis).unwrap();
         let digest: String = Sha1::from(bytes).hexdigest();
 
-        let cipher_text = encrypt(&genesis.public_key.clone(), ModInt::one());
+        let cipher_text = encrypt(&genesis.public_key.clone(), ModInt::zero());
 
         let voting_info = VotingInformation {
             total_votes: 0,
@@ -243,7 +243,7 @@ impl ProtocolHandler for CliqueProtocol {
 
                 Message::TransactionAccept
             }
-            Message::TransactionAccept => unimplemented!("Not yet implemented: Block accept"),
+            Message::TransactionAccept => Message::None,
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
                 self.chain.add_block(block);

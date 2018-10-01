@@ -64,7 +64,7 @@ impl ChainVisitor for SumCipherTextVisitor {
         // homomorphically add the cipher text
         for transaction in block.data.transactions.clone() {
             self.sum_cipher_text = self.sum_cipher_text.clone().operate(transaction.cipher_text);
-            self.total_votes += 1;
+            self.total_votes = self.total_votes + 1;
         }
     }
 }
