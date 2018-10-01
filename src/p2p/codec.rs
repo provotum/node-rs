@@ -5,7 +5,7 @@ use serde_json;
 use std::str;
 
 // macro Deserialize, Serialize from serde_derive
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Eq, PartialEq, Deserialize, Serialize, Clone, Debug)]
 pub enum Message {
     Ping,
     Pong,
