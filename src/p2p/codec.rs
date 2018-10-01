@@ -17,6 +17,10 @@ pub enum Message {
     ChainRequest,
     ChainResponse(Chain),
     ChainAccept,
+    OpenVote,
+    OpenVoteAccept,
+    CloseVote,
+    CloseVoteAccept,
     None,
 }
 
