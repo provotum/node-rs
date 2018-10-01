@@ -5,10 +5,10 @@ use crypto_rs::el_gamal::membership_proof::MembershipProof;
 /// Use Deserialize from Serde, Hash from std::hash
 #[derive(Eq, PartialEq, Hash, Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
-    voter_idx: usize,
-    cipher_text: CipherText,
-    membership_proof: MembershipProof,
-    cai_proof: CaiProof,
+    pub voter_idx: usize,
+    pub cipher_text: CipherText,
+    pub membership_proof: MembershipProof,
+    pub cai_proof: CaiProof,
 }
 
 impl Transaction {
