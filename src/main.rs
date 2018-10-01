@@ -27,7 +27,7 @@ fn main() {
     let mut opts = getopts::Options::new();
     opts.optflag("c", "connect", "let's the node connect to all known peers");
     opts.optflag("s", "sign", "let's the node start signing blocks");
-    opts.optflag("h", "", "print this help menu");
+    opts.optflag("h", "help", "print this help menu");
 
     if args.len() < 3 {
         print_usage(&program, &opts);
