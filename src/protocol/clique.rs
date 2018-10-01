@@ -49,8 +49,8 @@ pub struct CliqueProtocol {
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct VotingInformation {
-    total_votes: usize,
-    cipher_text: CipherText,
+    pub total_votes: usize,
+    pub cipher_text: CipherText,
 }
 
 impl CliqueProtocol {
