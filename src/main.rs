@@ -19,10 +19,10 @@ fn main() {
         .author("Raphael Matile <raphael.matile@gmail.com>")
         .about("Run a blockchain node")
         .arg(Arg::with_name("verbosity")
-             .help("Turn up the verbosity of the log output")
-             .short("v")
-             .long("verbosity")
-             .multiple(true)
+            .help("Turn up the verbosity of the log output")
+            .short("v")
+            .long("verbosity")
+            .multiple(true)
         )
         .subcommand(
             SubCommand::with_name("start")
@@ -54,10 +54,10 @@ fn main() {
 
     let log_filter;
     match matches.occurrences_of("verbosity") {
-        0 => { log_filter = "node_rs=info" },
-        1 => { log_filter = "node_rs=debug" },
-        2 => { log_filter = "node_rs=trace" },
-        _ => { log_filter = "node_rs=trace" },
+        0 => { log_filter = "node_rs=info" }
+        1 => { log_filter = "node_rs=debug" }
+        2 => { log_filter = "node_rs=trace" }
+        _ => { log_filter = "node_rs=trace" }
     }
 
     // init logger
@@ -81,19 +81,19 @@ fn main() {
 
             // get configuration
             let genesis_path = Path::new("genesis.json");
-            if ! genesis_path.exists() {
+            if !genesis_path.exists() {
                 error!("Genesis configuration not found at './genesis.json'");
                 std::process::exit(1);
             }
 
             let public_key_path = Path::new("public_key.json");
-            if ! public_key_path.exists() {
+            if !public_key_path.exists() {
                 error!("Public key not found at './public_key.json'");
                 std::process::exit(1);
             }
 
             let public_uciv = Path::new("public_uciv.json");
-            if ! public_uciv.exists() {
+            if !public_uciv.exists() {
                 error!("Public universal cast-as-intended verifiability (UCIV) configuration not found at './public_uciv.json'");
                 std::process::exit(1);
             }
@@ -111,11 +111,10 @@ fn main() {
             if has_sign {
                 node.sign();
             }
-
-        },
+        }
         Some(&_) | None => {
             // an unspecified or no command was used
             println!("{}", matches.usage())
-        },
+        }
     }
 }

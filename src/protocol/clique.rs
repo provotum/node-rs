@@ -1,4 +1,4 @@
-use ::chain::block::Block;
+use ::chain::block::{Block};
 use ::chain::chain::Chain;
 use ::chain::chain_visitor::SumCipherTextVisitor;
 use ::chain::chain_walker::{ChainWalker, LongestPathWalker};
@@ -172,7 +172,7 @@ impl CliqueProtocol {
 
         VotingInformation {
             cipher_text: sum_cipher_visitor.sum_cipher_text,
-            total_votes: sum_cipher_visitor.total_votes
+            total_votes: sum_cipher_visitor.total_votes,
         }
     }
 
@@ -246,6 +246,16 @@ impl ProtocolHandler for CliqueProtocol {
             Message::TransactionAccept => Message::None,
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
+                let mut non_duplicate_trxs = vec![];
+
+                for transaction in block.data.transactions.clone() {
+                    if ! self.transactions.contains(&transaction.clone()) {
+                        non_duplicate_trxs.push(transaction.clone());
+                    }
+                }
+
+                self.transactions = non_duplicate_trxs;
+
                 self.chain.add_block(block);
 
                 Message::TransactionAccept
@@ -298,7 +308,7 @@ impl ProtocolHandler for CliqueProtocol {
                 let final_tally = self.calculate_result();
 
                 Some((Message::RequestTallyPayload(final_tally), Message::None))
-            },
+            }
             Message::RequestTallyPayload(_) => None,
         }
     }

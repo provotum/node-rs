@@ -2,7 +2,7 @@
   "version": "0.1.0",
   "clique": {
     "block_period": 15,
-    "signer_limit": 1
+    "signer_limit": 2
   },
   "sealer": [
     "127.0.0.1:9000",
