@@ -38,6 +38,7 @@ pub trait ProtocolHandler {
 
 /// The clique protocol provides a Proof-of-Authority (PoA)
 /// sybil control mechanism.
+#[derive(Serialize)]
 pub struct CliqueProtocol {
     transactions: Vec<Transaction>,
     voting_information: VotingInformation,
