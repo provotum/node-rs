@@ -92,7 +92,7 @@ impl ChainVisitor for SumCipherTextVisitor {
         // Note: The blockchain is visited from the newest block first and is then
         // traversed from the bottom up.
 
-        info!("Counting votes in block {:?}", block.identifier.clone());
+        debug!("Counting votes in block {:?}", block.identifier.clone());
 
         // homomorphically add the cipher text
         for transaction in block.data.transactions.clone() {

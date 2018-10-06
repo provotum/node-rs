@@ -356,7 +356,7 @@ impl Node {
                 // - we receive a transaction during our signing process as co-leader
                 // - of course, this transaction is not contained in the block
                 // - resetting the transaction buffer will also cause the new one to be removed
-                // - we are missing a transaction as leader. 
+                // - we are missing a transaction as leader.
             }
         });
     }

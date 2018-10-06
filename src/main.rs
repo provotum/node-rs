@@ -17,7 +17,7 @@ fn main() {
     let matches = App::new("node_rs")
         .version("0.1.0")
         .author("Raphael Matile <raphael.matile@gmail.com>")
-        .about("Run a blockchain node")
+        .about("Run a node of a permissioned e-voting blockchain")
         .arg(Arg::with_name("verbosity")
             .help("Turn up the verbosity of the log output")
             .short("v")
