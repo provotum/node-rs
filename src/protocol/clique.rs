@@ -105,11 +105,11 @@ impl CliqueProtocol {
         let other_chain_height = chain.get_current_block_number();
 
         if !chain.genesis_configuration_hash.eq(&self.chain.genesis_configuration_hash) {
-            debug!("Not replacing chain {:?} as its genesis configuration does not match ours.", chain.clone());
+            warn!("Not replacing chain {:?} as its genesis configuration does not match ours.", chain.clone());
             return;
         }
 
-        debug!("My height: {}, other height: {}", own_chain_height, other_chain_height);
+        trace!("My height: {}, other height: {}", own_chain_height, other_chain_height);
 
         if own_chain_height < other_chain_height {
             debug!("Replacing own chain of length {:?} with remote chain of length {:?}", own_chain_height, other_chain_height);
@@ -153,19 +153,17 @@ impl CliqueProtocol {
         }
 
         if self.transactions.contains(&transaction) {
-            trace!("Transaction {:?} is already contained. Not adding to chain", transaction.clone());
+            trace!("Transaction {:?} is already contained. Not adding to chain", transaction.identifier.clone());
             return;
         }
 
         if self.is_leader() || self.is_co_leader() {
-            trace!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.clone(), self.transactions.len());
+            debug!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.identiifer.clone(), self.transactions.len());
             self.transactions.push(transaction);
         }
     }
 
     fn calculate_result(&self) -> VotingInformation {
-        // TODO: check whether the vote was opened and closed!
-
         let mut sum_cipher_visitor = SumCipherTextVisitor::new(self.voting_information.cipher_text.clone());
         let longest_path_walker = LongestPathWalker::new();
 
@@ -203,7 +201,7 @@ impl CliqueProtocol {
         );
 
         if self.is_co_leader() {
-            trace!("Signing as co-leader and therefore adding wiggle time before broadcast");
+            debug!("Signing as co-leader and therefore adding wiggle time before broadcast");
             // add some "wiggle" time to let leader nodes announce their blocks first
             let delay = time::Duration::from_millis(1000);
 

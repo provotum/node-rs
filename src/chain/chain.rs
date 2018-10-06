@@ -108,10 +108,21 @@ impl Chain {
             .entry(block.identifier.clone())
             .or_insert(vec![]);
 
-        // insert the block finally
-        self.blocks.insert(block.identifier.clone(), block);
+        // insert the block finally,
+        // returns None if no block was contained at the given key,
+        // but returns the old value if a block was already contained with the same key.
+        let previous_block_option = self.blocks.insert(block.identifier.clone(), block);
 
-        return true;
+        // this is a sanity check only, we should never panic here, but if we do
+        // this might cause a huge mess...
+        match previous_block_option {
+            None => {
+                return true;
+            }
+            Some(previous_block) => {
+                panic!("Double insert of block {:?}", previous_block.identifier.clone)
+            }
+        }
     }
 }
 
