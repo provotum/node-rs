@@ -120,7 +120,7 @@ impl Chain {
                 return true;
             }
             Some(previous_block) => {
-                panic!("Double insert of block {:?}", previous_block.identifier.clone)
+                panic!("Double insert of block {:?}", previous_block.identifier.clone())
             }
         }
     }

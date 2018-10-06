@@ -158,7 +158,7 @@ impl CliqueProtocol {
         }
 
         if self.is_leader() || self.is_co_leader() {
-            debug!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.identiifer.clone(), self.transactions.len());
+            debug!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.identifier.clone(), self.transactions.len());
             self.transactions.push(transaction);
         }
     }
@@ -283,9 +283,17 @@ impl ProtocolHandler for CliqueProtocol {
                 Message::ChainAccept
             }
             Message::ChainAccept => Message::None,
-            Message::OpenVote => Message::OpenVoteAccept,
+            Message::OpenVote => {
+                self.on_transaction_receive(Transaction::new_voting_opened());
+
+                Message::OpenVoteAccept
+            },
             Message::OpenVoteAccept => Message::None,
-            Message::CloseVote => Message::CloseVoteAccept,
+            Message::CloseVote => {
+                self.on_transaction_receive(Transaction::new_voting_closed());
+
+                Message::CloseVoteAccept
+            },
             Message::CloseVoteAccept => Message::None,
             Message::RequestTally => Message::None,
             Message::RequestTallyPayload(_) => Message::None,
@@ -315,10 +323,18 @@ impl ProtocolHandler for CliqueProtocol {
             Message::ChainResponse(_) => None,
             Message::ChainAccept => None,
             // TODO: add flag to chain
-            Message::OpenVote => Some((Message::OpenVoteAccept, Message::OpenVote)),
+            Message::OpenVote => {
+                self.on_transaction_receive(Transaction::new_voting_opened());
+
+                Some((Message::OpenVoteAccept, Message::OpenVote))
+            },
             Message::OpenVoteAccept => None,
             // TODO: add flag to chain
-            Message::CloseVote => Some((Message::CloseVoteAccept, Message::CloseVote)),
+            Message::CloseVote => {
+                self.on_transaction_receive(Transaction::new_voting_closed());
+
+                Some((Message::CloseVoteAccept, Message::CloseVote))
+            },
             Message::CloseVoteAccept => None,
             Message::RequestTally => {
                 let final_tally = self.calculate_result();
