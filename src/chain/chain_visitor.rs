@@ -1,4 +1,5 @@
 use ::chain::block::Block;
+use ::chain::transaction::TransactionType;
 use crypto_rs::el_gamal::ciphertext::CipherText;
 use crypto_rs::el_gamal::additive::Operate;
 
@@ -47,24 +48,49 @@ impl ChainVisitor for HeaviestBlockVisitor {
 
 pub struct SumCipherTextVisitor {
     pub sum_cipher_text: CipherText,
-    pub total_votes: usize
+    pub total_votes: usize,
+    is_voting_opened: bool,
+    is_voting_closed: bool
 }
 
 impl SumCipherTextVisitor {
     pub fn new(zero_cipher_text: CipherText) -> SumCipherTextVisitor {
         SumCipherTextVisitor {
             sum_cipher_text: zero_cipher_text,
-            total_votes: 0
+            total_votes: 0,
+            is_voting_opened: false,
+            is_voting_closed: true
         }
     }
 }
 
 impl ChainVisitor for SumCipherTextVisitor {
+
     fn visit_block(&mut self, _height: usize, block: &Block) {
+        info!("Counting votes in block {:?}", block.identifier.clone());
+
         // homomorphically add the cipher text
         for transaction in block.data.transactions.clone() {
-            self.sum_cipher_text = self.sum_cipher_text.clone().operate(transaction.cipher_text);
-            self.total_votes = self.total_votes + 1;
+
+            match transaction.trx_type {
+                TransactionType::VoteOpened => {
+                    info!("Found open vote transaction {:?}", transaction.identifier.clone());
+                    self.is_voting_opened = true
+                }
+                TransactionType::VoteClosed => {
+                    info!("Found close vote transaction {:?}", transaction.identifier.clone());
+                    self.is_voting_closed = true
+                }
+                TransactionType::Vote => {
+                    if ! self.is_voting_opened {
+                        warn!("Skipping to count vote in transaction {:?} as voting was not yet opened", transaction.identifier.clone());
+                    } else {
+                        info!("Counting vote in transaction {:?}", transaction.identifier.clone());
+                        self.sum_cipher_text = self.sum_cipher_text.clone().operate(transaction.data.unwrap().cipher_text);
+                        self.total_votes = self.total_votes + 1;
+                    }
+                }
+            }
         }
     }
 }

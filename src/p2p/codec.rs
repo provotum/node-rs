@@ -15,6 +15,7 @@ pub enum Message {
     BlockRequest(String),
     BlockPayload(Block),
     BlockAccept,
+    BlockDuplicated,
     ChainRequest,
     ChainResponse(Chain),
     ChainAccept,

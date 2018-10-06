@@ -79,8 +79,11 @@ impl Chain {
     /// Add the block as child to its corresponding parent.
     /// Panics, if the parent block specified does not exist.
     /// Therefore, invoke `has_parent_of_block` first.
-    pub fn add_block(&mut self, block: Block) {
+    ///
+    /// Returns true, if the block was added, false otherwise.
+    pub fn add_block(&mut self, block: Block) -> bool {
         // add block hash to its parent as child
+        let mut is_contained = false;
         self.adjacent_matrix
             // in-place modification of the vector
             .entry(block.data.parent.clone())
@@ -89,9 +92,14 @@ impl Chain {
                     info!("Adding block {:?} containing {:?} transactions to chain.", block.identifier.clone(), block.data.transactions.len());
                     parent_block_children.push(block.identifier.clone());
                 } else {
-                    trace!("Not adding block {:?} as it is already contained.", block.identifier.clone());
+                    debug!("Not adding block {:?} as it is already contained.", block.identifier.clone());
+                    is_contained = true;
                 }
             });
+
+        if is_contained {
+            return false;
+        }
 
         // add a new entry for the block we've inserted
         // having currently no children
@@ -102,6 +110,8 @@ impl Chain {
 
         // insert the block finally
         self.blocks.insert(block.identifier.clone(), block);
+
+        return true;
     }
 }
 

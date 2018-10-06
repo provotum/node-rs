@@ -310,12 +310,16 @@ mod chain_walker_test {
             images: vec![ModInt::one()]
         };
 
-        let trx = Transaction {
-            voter_idx: 0,
-            cipher_text: cipher_text.clone(),
-            membership_proof: MembershipProof::new(public_key.clone(), ModInt::one(), cipher_text.clone(), vec![ModInt::one()]),
-            cai_proof: CaiProof::new(public_key.clone(), cipher_text.clone(), pre_image_set.clone(), image_set.clone(), 0, vec![ModInt::one()]),
-        };
+        let open_trx = Transaction::new_voting_opened();
+
+        let trx = Transaction::new_vote(
+            0,
+            cipher_text.clone(),
+            MembershipProof::new(public_key.clone(), ModInt::one(), cipher_text.clone(), vec![ModInt::one()]),
+            CaiProof::new(public_key.clone(), cipher_text.clone(), pre_image_set.clone(), image_set.clone(), 0, vec![ModInt::one()]),
+        );
+
+        let close_trx = Transaction::new_voting_opened();
 
         // first level
         chain.add_block(Block {
@@ -323,7 +327,7 @@ mod chain_walker_test {
             data: BlockContent {
                 parent: genesis_id,
                 timestamp: 1,
-                transactions: vec![trx.clone()]
+                transactions: vec![open_trx.clone(), trx.clone(), close_trx.clone()]
             }
         });
 

@@ -136,7 +136,7 @@ impl CliqueProtocol {
         let current_block_number = self.chain.get_current_block_number();
 
         let lower_leader_index_bound = (current_block_number % self.signer_count) + 1;
-        let upper_leader_index_bound = lower_leader_index_bound + self.genesis.clique.signer_limit;
+        let upper_leader_index_bound = (current_block_number + self.genesis.clique.signer_limit) % self.signer_count;
 
         let am_i_co_leader = (self.signer_index >= lower_leader_index_bound) && (self.signer_index <= upper_leader_index_bound);
 
@@ -158,7 +158,7 @@ impl CliqueProtocol {
         }
 
         if self.is_leader() || self.is_co_leader() {
-            trace!("We are either leader or co-leader and therefore adding transaction {:?}", transaction.clone());
+            trace!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.clone(), self.transactions.len());
             self.transactions.push(transaction);
         }
     }
@@ -221,7 +221,15 @@ impl CliqueProtocol {
         self.transactions = vec![];
 
         // add block to our chain as well
-        self.chain.add_block(block.clone());
+        let is_added = self.chain.add_block(block.clone());
+
+        if ! is_added {
+            debug!("Block {} is already contained in the chain, possibly due to a leader broadcast earlier. Skipping broadcast.", block.identifier);
+            let current_block_after_sign = self.chain.get_current_block();
+            debug!("Current block without signing has height {:?} and identifier {:?}", current_block_after_sign.0, current_block_after_sign.1.identifier);
+
+            return None;
+        }
 
         let current_block_after_sign = self.chain.get_current_block();
         debug!("Current block after signing has height {:?} and identifier {:?}", current_block_after_sign.0, current_block_after_sign.1.identifier);
@@ -247,21 +255,29 @@ impl ProtocolHandler for CliqueProtocol {
             Message::TransactionAccept => Message::None,
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
-                let mut non_duplicate_trxs = vec![];
 
+                // check whether we have the contained transaction already in our buffer
+                let mut non_duplicate_trxs = vec![];
                 for transaction in block.data.transactions.clone() {
                     if ! self.transactions.contains(&transaction.clone()) {
                         non_duplicate_trxs.push(transaction.clone());
                     }
                 }
 
+                // TODO: is it wrong to remove all transactions from the buffer?
+                //       -> they are already broadcast to other nodes, possibly the leader
                 self.transactions = non_duplicate_trxs;
 
-                self.chain.add_block(block);
+                let is_added = self.chain.add_block(block);
 
-                Message::TransactionAccept
+                if is_added {
+                    return Message::BlockAccept;
+                }
+
+                Message::BlockDuplicated
             }
             Message::BlockAccept => Message::None,
+            Message::BlockDuplicated => Message::None,
             Message::ChainRequest => Message::ChainResponse(self.chain.clone()),
             Message::ChainResponse(chain) => {
                 self.replace_chain(chain);
@@ -296,7 +312,8 @@ impl ProtocolHandler for CliqueProtocol {
             Message::BlockRequest(_) => None,
             Message::BlockPayload(_) => None,
             Message::BlockAccept => None,
-            Message::ChainRequest => None,
+            Message::BlockDuplicated => None,
+            Message::ChainRequest => Some((Message::ChainResponse(self.chain.clone()), Message::None)),
             Message::ChainResponse(_) => None,
             Message::ChainAccept => None,
             // TODO: add flag to chain
