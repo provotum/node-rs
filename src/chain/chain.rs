@@ -82,6 +82,12 @@ impl Chain {
     ///
     /// Returns true, if the block was added, false otherwise.
     pub fn add_block(&mut self, block: Block) -> bool {
+        let mut trx_identifiers = vec![];
+
+        for trx in block.data.transactions.clone() {
+            trx_identifiers.push(trx.identifier.clone());
+        }
+
         // add block hash to its parent as child
         let mut is_contained = false;
         self.adjacent_matrix
@@ -89,7 +95,7 @@ impl Chain {
             .entry(block.data.parent.clone())
             .and_modify(|parent_block_children| {
                 if ! parent_block_children.contains(&block.identifier.clone()) {
-                    info!("Adding block {:?} containing {:?} transactions to chain.", block.identifier.clone(), block.data.transactions.len());
+                    info!("Adding block {:?} containing transactions [{:?}] to chain.", block.identifier.clone(), trx_identifiers.join(", "));
                     parent_block_children.push(block.identifier.clone());
                 } else {
                     debug!("Not adding block {:?} as it is already contained.", block.identifier.clone());

@@ -268,22 +268,50 @@ impl Node {
         let own_address = self.listen_address.clone();
 
         self.thread_pool.execute(move || {
+            let mut has_logged_signed_recently = false;
+
             loop {
-                let cloned_clique_protocol_handler: Arc<Mutex<CliqueProtocol>> = Arc::clone(&clique_protocol_handler);
-                let cloned_peers = Arc::clone(&peers);
+                // start with waiting
+                thread::sleep(time::Duration::from_millis(1000));
 
-                let delay = time::Duration::from_millis(1000);
+                // check whether we have to do something
+                let is_leader = clique_protocol_handler.lock().unwrap().is_leader();
+                let is_co_leader = clique_protocol_handler.lock().unwrap().is_co_leader();
+                if ! is_leader  && ! is_co_leader {
+                    // this is just to reduce log output spamming
+                    if ! has_logged_signed_recently {
+                        debug!("Signed recently, must wait for others...");
+                        has_logged_signed_recently = true;
+                    }
+                    continue;
+                }
+                // reset so that we get notified again...
+                has_logged_signed_recently = false;
 
-                let something_to_broadcast = cloned_clique_protocol_handler.lock().unwrap().sign();
+                if !clique_protocol_handler.lock().unwrap().is_block_period_over() {
+                    continue;
+                }
 
-                match something_to_broadcast {
+                let current_block = clique_protocol_handler.lock().unwrap().create_current_block();
+
+                // check whether we are a co-leader and must wait to sign the block
+                // for some time...
+                if clique_protocol_handler.lock().unwrap().is_co_leader() {
+                    debug!("I am co-leader and therefore adding wiggle before signing block {:?}", current_block.identifier.clone());
+                    // add some "wiggle" time to let leader nodes announce their blocks first
+                    thread::sleep(time::Duration::from_millis(1000));
+                }
+
+                info!("Signing block {:?}", current_block.identifier.clone());
+                let block_to_broadcast = clique_protocol_handler.lock().unwrap().sign(current_block);
+
+                match block_to_broadcast {
                     None => {
-                        trace!("No need to broadcast a block. Waiting...");
-                        // wait until next try
-                        thread::sleep(delay);
+                        // noop
                     }
                     Some(block) => {
                         info!("Broadcasting block {:?}", block.identifier.clone());
+                        let cloned_peers = Arc::clone(&peers);
                         // broadcast new block
                         for peer_addr in cloned_peers.lock().unwrap().iter() {
                             if own_address.clone().eq(peer_addr) {
@@ -304,9 +332,6 @@ impl Node {
                                 }
                             }
                         }
-
-                        // wait until next try
-                        thread::sleep(delay);
                     }
                 }
             }

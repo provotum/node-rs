@@ -11,7 +11,6 @@ use crypto_rs::el_gamal::ciphertext::CipherText;
 use crypto_rs::el_gamal::encryption::encrypt;
 use num::Zero;
 use sha1::Sha1;
-use std::{thread, time};
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::vec::Vec;
@@ -119,7 +118,7 @@ impl CliqueProtocol {
 
     /// Returns true, if the node is a leader in the current
     /// epoch and therefore allowed to sign blocks.
-    fn is_leader(&self) -> bool {
+    pub fn is_leader(&self) -> bool {
         let current_block_number = self.chain.get_current_block_number();
         let expected_leader_index = current_block_number % self.signer_count;
         let am_i_leader = self.signer_index == expected_leader_index;
@@ -132,7 +131,7 @@ impl CliqueProtocol {
     /// Returns true, if the node is a co-leader in the current
     /// epoch and therefore allowed to sign a blocks after waiting for
     /// a particular wiggle time.
-    fn is_co_leader(&self) -> bool {
+    pub fn is_co_leader(&self) -> bool {
         let current_block_number = self.chain.get_current_block_number();
 
         let lower_leader_index_bound = (current_block_number % self.signer_count) + 1;
@@ -158,7 +157,7 @@ impl CliqueProtocol {
         }
 
         if self.is_leader() || self.is_co_leader() {
-            debug!("We are either leader or co-leader and therefore adding transaction {:?} to buffer with current len {}", transaction.identifier.clone(), self.transactions.len());
+            info!("Adding transaction {:?} to buffer with current len {}", transaction.identifier.clone(), self.transactions.len());
             self.transactions.push(transaction);
         }
     }
@@ -175,54 +174,51 @@ impl CliqueProtocol {
         }
     }
 
-    /// Sign a block with all current known transactions.
-    /// May return None if a block with the same identifier is already contained
-    /// in the chain of the node.
-    pub fn sign(&mut self) -> Option<Block> {
-        if !self.is_leader() && !self.is_co_leader() {
-            trace!("Skipping to sign as neither leader nor co-leader");
-            return None;
-        }
-
+    pub fn is_block_period_over(&self) -> bool {
         let now = SystemTime::now();
         let now_unix = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
 
         let next_run = self.genesis.clique.block_period + self.chain.get_current_block_timestamp();
 
         if now_unix < next_run {
-            trace!("Block period is not yet over. {:?} seconds left. Waiting...", next_run - now_unix);
-            return None;
+            trace!("Block period is not yet over. {:?} seconds left.", next_run - now_unix);
+            return false;
         }
 
+        trace!("Block period is over.");
+        return true;
+    }
+
+    pub fn create_current_block(&mut self) -> Block {
         let current_block = self.chain.get_current_block();
+
         let block = Block::new(
             current_block.1.identifier.clone(),
             self.transactions.clone(),
         );
 
-        if self.is_co_leader() {
-            debug!("Signing as co-leader and therefore adding wiggle time before broadcast");
-            // add some "wiggle" time to let leader nodes announce their blocks first
-            let delay = time::Duration::from_millis(1000);
-
-            thread::sleep(delay);
-
-            // check whether we already received the block from the leader
-            // -> no need to broadcast the block again
-            if self.chain.blocks.contains_key(&block.identifier.clone()) {
-                debug!("Skipping to broadcast block {:?} as already received from the leader.", block.identifier.clone());
-                return None;
-            }
-        }
-
         // reset current state again
         self.transactions = vec![];
+
+        block
+    }
+
+    /// Sign a block with all current known transactions.
+    /// May return None if a block with the same identifier is already contained
+    /// in the chain of the node.
+    pub fn sign(&mut self, block: Block) -> Option<Block> {
+        // check whether we already received the block from the leader
+        // -> no need to broadcast the block again
+        if self.chain.blocks.contains_key(&block.identifier.clone()) {
+            debug!("Block {:?} is already known. Not adding and signing.", block.identifier.clone());
+            return None;
+        }
 
         // add block to our chain as well
         let is_added = self.chain.add_block(block.clone());
 
         if ! is_added {
-            debug!("Block {} is already contained in the chain, possibly due to a leader broadcast earlier. Skipping broadcast.", block.identifier);
+            trace!("Block {} was already contained in the chain, possibly due to a leader broadcast earlier. Skipping broadcast.", block.identifier);
             let current_block_after_sign = self.chain.get_current_block();
             debug!("Current block without signing has height {:?} and identifier {:?}", current_block_after_sign.0, current_block_after_sign.1.identifier);
 
@@ -255,16 +251,17 @@ impl ProtocolHandler for CliqueProtocol {
             Message::BlockPayload(block) => {
 
                 // check whether we have the contained transaction already in our buffer
-                let mut non_duplicate_trxs = vec![];
-                for transaction in block.data.transactions.clone() {
-                    if ! self.transactions.contains(&transaction.clone()) {
-                        non_duplicate_trxs.push(transaction.clone());
-                    }
-                }
-
-                // TODO: is it wrong to remove all transactions from the buffer?
-                //       -> they are already broadcast to other nodes, possibly the leader
-                self.transactions = non_duplicate_trxs;
+                // TODO: this might be entirely wrong if our buffer is currently empty -> we are re-adding transactions again
+//                let mut non_duplicate_trxs = vec![];
+//                for transaction in block.data.transactions.clone() {
+//                    if ! self.transactions.contains(&transaction.clone()) {
+//                        non_duplicate_trxs.push(transaction.clone());
+//                    }
+//                }
+//
+//                // TODO: is it wrong to remove all transactions from the buffer?
+//                //       -> they are already broadcast to other nodes, possibly the leader
+//                self.transactions = non_duplicate_trxs;
 
                 let is_added = self.chain.add_block(block);
 
