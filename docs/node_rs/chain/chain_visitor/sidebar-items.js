@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["HeaviestBlockVisitor","This visitor expects to be called exactly once with the heaviest block in the chain."],["SumCipherTextVisitor","Sums up all votes contained in the transactions, after the voting has been opened and until it is closed again."]],"trait":[["ChainVisitor",""]]});

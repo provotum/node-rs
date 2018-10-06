@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TransactionType",""]],"struct":[["Transaction","Use Deserialize from Serde, Hash from std::hash"],["TransactionData",""]]});

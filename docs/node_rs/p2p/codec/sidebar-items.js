@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Message","Messages used to communicate information between nodes."]],"struct":[["JsonCodec","JsonCodec is able to encode and decode a particular `Message` as a json `String` and vice-versa, respectively."]],"trait":[["Codec","A codec is able to encode as well decode a particular `Message` into a corresponding `String` representation."]]});

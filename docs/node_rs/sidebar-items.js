@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["chain","Holds all functionality related to the blockchain itself."],["config","Holds all functionality related to the blockchain configuration, e.g. Genesis."],["p2p","Holds all functionality related to the networking stuff."],["protocol","Holds all functionality related to the protocol used to communicate blocks and transactions."]]});

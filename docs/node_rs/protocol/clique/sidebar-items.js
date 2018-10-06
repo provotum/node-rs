@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CliqueProtocol","The clique protocol provides a Proof-of-Authority (PoA) sybil control mechanism."],["Tally","Holds the tally of the voting."]],"trait":[["ProtocolHandler","A protocol handler implements specific business logic on what should be done when a message is received, either from other running nodes or client applications."]]});

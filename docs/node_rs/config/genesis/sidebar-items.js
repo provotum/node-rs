@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CliqueConfig","A configuration element for clique specific values."],["Genesis","The configuration for the blockchain, usually included in the first block of a chain, and therefore often referred to as genesis block."],["GenesisData","Use Deserialize from Serde, Hash from std::hash"]]});

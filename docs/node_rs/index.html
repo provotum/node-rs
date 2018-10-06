@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `node_rs` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, node_rs">
+
+    <title>node_rs - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css"
+          id="mainThemeStyle">
+    
+    <link rel="stylesheet" type="text/css" href="../dark.css">
+    <link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle">
+    <script src="../storage.js"></script>
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        <div class="sidebar-menu">&#9776;</div>
+        
+        <p class='location'>Crate node_rs</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'node_rs', ty: 'mod', relpath: '../'};</script></div>
+    </nav>
+
+    <div class="theme-picker">
+        <button id="theme-picker" aria-label="Pick another theme!">
+            <img src="../brush.svg" width="18" alt="Pick another theme!">
+        </button>
+        <div id="theme-choices"></div>
+    </div>
+    <script src="../theme.js"></script>
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content"><h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>node_rs</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/node_rs/lib.rs.html#1-165' title='goto source code'>[src]</a></span></h1><div class='docblock'><p><code>node_rs</code> provides a binary to run a binary vote on a permissioned blockchain.</p>
+<p><strong>[WIP] This library is still work in progress and not audited in any way. Use at your own risk.</strong></p>
+<h2 id="usage" class="section-header"><a href="#usage">Usage</a></h2>
+<pre><code class="language-sh">Run a node of a permissioned e-voting blockchain
+
+USAGE:
+    node_rs [FLAGS] [SUBCOMMAND]
+
+FLAGS:
+    -h, --help         Prints help information
+    -V, --version      Prints version information
+    -v, --verbosity    Turn up the verbosity of the log output
+
+SUBCOMMANDS:
+    help     Prints this message or the help of the given subcommand(s)
+    start    Start a new node
+</code></pre>
+<h2 id="requirements" class="section-header"><a href="#requirements">Requirements</a></h2>
+<p><strong>Please note the requirements below for a successful setup of the network.</strong></p>
+<h3 id="genesis" class="section-header"><a href="#genesis">Genesis</a></h3>
+<p>In order to run a node of a permissioned blockchain, a configuration
+for the network must be configured. Consistently with other blockchains,
+this configuration is defining the hash of the initial block.
+It is stored in the same directory as the binary is located and must be
+called <code>genesis.json</code>.</p>
+<p>An example of such a file can look like the following:</p>
+<pre><code class="language-json">{
+  &quot;version&quot;: &quot;0.1.0&quot;,
+  &quot;clique&quot;: {
+    &quot;block_period&quot;: 15,
+    &quot;signer_limit&quot;: 2
+  },
+  &quot;sealer&quot;: [
+    &quot;127.0.0.1:9000&quot;,
+    &quot;127.0.0.1:9001&quot;,
+    &quot;127.0.0.1:9002&quot;
+  ]
+}
+</code></pre>
+<p><strong>Parameters</strong>:</p>
+<ul>
+<li><code>version</code>: Version specifies the version of the blockchain binary which is used.</li>
+<li><code>clique</code>: This blockchain uses a simplified implementation of the Clique
+protocol as initially proposed to the Ethereum blockchain as
+Proof-of-Authority <a href="https://twitter.com/el33th4xor/status/1006931658338177024?s=12">sybil control mechanism</a>.
+<ul>
+<li><code>block_period</code>: This is the period until a new block is generated</li>
+<li><code>signer_limit</code>: How many epochs a node must wait until its his turn again to mint a new block</li>
+</ul>
+</li>
+<li><code>sealer</code>: A set of IPv4 addresses of nodes which form the network.</li>
+</ul>
+<p><em>Note: In order to let multiple nodes build a network successfully, this
+configuration must be equal, as its hash is used in the Genesis block.
+Nodes with different genesis files (even a single empty line) will
+not build a canonical chain!</em></p>
+<h3 id="public-key" class="section-header"><a href="#public-key">Public Key</a></h3>
+<p>In order to count encrypted votes in a <a href="https://en.wikipedia.org/wiki/Homomorphic_encryption">homomorphic</a> fashion,
+each node needs a copy of the same public key. A keypair can be generated
+using the binary of <a href="https://github.com/provotum/generator-rs">generator_rs</a>.
+The obtained copy of a public key must be stored in <code>public_key.json</code> in the
+same directory as the binary.</p>
+<h3 id="public-uciv" class="section-header"><a href="#public-uciv">Public UCIV</a></h3>
+<p>Allowing a voter to be sure, that his encrypted vote still represents
+his actual voting choice is known as <code>individual cast-as-intended verifiability</code>.
+Allowing anyone to proof that each vote represents what a voter intended
+it to be, is called <code>universal cast-as-intended verifiability (UCIV)</code> according
+to <a href="https://fc16.ifca.ai/voting/papers/EGHM16.pdf">this paper</a>.</p>
+<p>This blockchain aims at providing <code>UCIV</code> by utilizing a
+zero-knowledge proof. In order to verify that each vote is indeed
+cast as intended, you further need to provide a <code>public_uciv.json</code> file
+in the same directory as the binary is invoked. As the public key,
+this information can be generated using <a href="https://github.com/provotum/generator-rs">generator_rs</a>.</p>
+<h2 id="running-a-permissioned-voting-network" class="section-header"><a href="#running-a-permissioned-voting-network">Running a permissioned Voting network</a></h2>
+<p>Now, once you have met the requirements stated above,
+you can start the permissioned voting blockchain.
+To let the nodes reach consensus in an early stage, follow
+the procedure outlined below:</p>
+<p>:warning: :warning: :warning:</p>
+<p><strong>This example requires to have <code>genesis.json</code> setup as in the above example.</strong></p>
+<ol>
+<li>
+<p>Start your first node by running <code>node_rs -v start -s 127.0.0.1:9000 127.0.0.1:3000</code>.
+The flag <code>-v</code> will let you output debug information, increase the
+verbosity using <code>-vv</code> to also show more detailed statements.
+<code>-s</code> tells the node to start minting blocks.
+Provide as first argument the first IP address of the <code>sealer</code> key
+of <code>genesis.json</code>. Specify as second argument any IPv4 address
+on which the node will listen for RPC connections of a client.</p>
+</li>
+<li>
+<p><strong>Important</strong>: Let the node mint the first block until you start
+a further one!</p>
+<p>Start your second node, this time by adding the flags <code>-p</code> to the
+command, yielding <code>node_rs -v start -s -p 127.0.0.1:9001 127.0.0.1:3001</code>.
+<code>-p</code> will tell the node to first obtain a copy of the already running
+nodes. If their canonical chain are longer, they will replace
+the chain of the node you've just started.
+<strong>Note</strong>: You will likely some warning output, telling you that
+connection attempts to other nodes failed. This is expected, as
+currently you've not yet started all nodes which are defined in the
+<code>genesis.json</code>.</p>
+</li>
+<li>
+<p><strong>Important</strong>: Let the <em>second</em> node mint the second block until you start
+a further one!</p>
+<p>Eventually, after the first two nodes have exchanged their initial blocks,
+you are ready to start the third one. For that, run <code>node_rs -v start -s -p 127.0.0.1:9002 127.0.0.1:3002</code>.</p>
+</li>
+</ol>
+<p>That's it, now you should see new blocks being minted every <code>block_period</code> seconds.</p>
+<h2 id="submitting-data-to-the-voting-blockchain" class="section-header"><a href="#submitting-data-to-the-voting-blockchain">Submitting Data to the Voting blockchain</a></h2>
+<p>In order to submit votes to the chain,
+please refer to the readme of <a href="https://github.com/provotum/client-rs">client_rs</a>.</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="chain/index.html"
+                                  title='mod node_rs::chain'>chain</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds all functionality related to the blockchain itself.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="config/index.html"
+                                  title='mod node_rs::config'>config</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds all functionality related to the blockchain configuration, e.g. Genesis.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="p2p/index.html"
+                                  title='mod node_rs::p2p'>p2p</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds all functionality related to the networking stuff.</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="protocol/index.html"
+                                  title='mod node_rs::protocol'>protocol</a></td>
+                           <td class='docblock-short'>
+                                <p>Holds all functionality related to the protocol used to communicate blocks and transactions.</p>
+
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt><kbd>?</kbd></dt>
+                    <dd>Show this help dialog</dd>
+                    <dt><kbd>S</kbd></dt>
+                    <dd>Focus the search field</dd>
+                    <dt><kbd>↑</kbd></dt>
+                    <dd>Move up in search results</dd>
+                    <dt><kbd>↓</kbd></dt>
+                    <dd>Move down in search results</dd>
+                    <dt><kbd>↹</kbd></dt>
+                    <dd>Switch tab</dd>
+                    <dt><kbd>&#9166;</kbd></dt>
+                    <dd>Go to active search result</dd>
+                    <dt><kbd>+</kbd></dt>
+                    <dd>Expand all sections</dd>
+                    <dt><kbd>-</kbd></dt>
+                    <dd>Collapse all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "node_rs";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
