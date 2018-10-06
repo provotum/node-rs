@@ -278,6 +278,9 @@ impl Node {
                 let is_leader = clique_protocol_handler.lock().unwrap().is_leader();
                 let is_co_leader = clique_protocol_handler.lock().unwrap().is_co_leader();
                 if ! is_leader  && ! is_co_leader {
+                    // any transactions a node may have must now be reset
+                    clique_protocol_handler.lock().unwrap().reset_transaction_buffer();
+
                     // this is just to reduce log output spamming
                     if ! has_logged_signed_recently {
                         debug!("Signed recently, must wait for others...");
@@ -292,7 +295,7 @@ impl Node {
                     continue;
                 }
 
-                let current_block = clique_protocol_handler.lock().unwrap().create_current_block();
+                let current_block = clique_protocol_handler.lock().unwrap().create_current_block_and_reset_transaction_buffer();
 
                 // check whether we are a co-leader and must wait to sign the block
                 // for some time...
@@ -334,6 +337,26 @@ impl Node {
                         }
                     }
                 }
+
+                // Scenario is as follows:
+                // - I am co-leader
+                // - I receive a transaction -> add transaction to buffer
+                // - I receive a block from leader containing that transaction
+                // - I'm the leader now, and still have the transaction im my buffer
+                // - I create a block containing that transaction again.
+                // => two different blocks with the same transaction in them
+
+                // Idea on how to prevent this here instead while receiving the block:
+                // Check whether we have the contained transactions of the block already in our buffer
+                // eventually, reset the transaction buffer again as we might have received new
+                // transactions while we were signing. Since we might not be a a co-leader
+                // or leader again -> remove them.
+
+                // => This will cause data loss in the following case:
+                // - we receive a transaction during our signing process as co-leader
+                // - of course, this transaction is not contained in the block
+                // - resetting the transaction buffer will also cause the new one to be removed
+                // - we are missing a transaction as leader. 
             }
         });
     }

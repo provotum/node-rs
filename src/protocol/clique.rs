@@ -6,10 +6,7 @@ use ::chain::transaction::Transaction;
 use ::config::genesis::Genesis;
 use ::p2p::codec::Message;
 use bincode;
-use crypto_rs::arithmetic::mod_int::ModInt;
 use crypto_rs::el_gamal::ciphertext::CipherText;
-use crypto_rs::el_gamal::encryption::encrypt;
-use num::Zero;
 use sha1::Sha1;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -40,7 +37,6 @@ pub trait ProtocolHandler {
 #[derive(Serialize)]
 pub struct CliqueProtocol {
     transactions: Vec<Transaction>,
-    voting_information: VotingInformation,
     signer_index: usize,
     signer_count: usize,
     genesis: Genesis,
@@ -80,16 +76,8 @@ impl CliqueProtocol {
         let bytes = bincode::serialize(&genesis).unwrap();
         let digest: String = Sha1::from(bytes).hexdigest();
 
-        let cipher_text = encrypt(&genesis.public_key.clone(), ModInt::zero());
-
-        let voting_info = VotingInformation {
-            total_votes: 0,
-            cipher_text,
-        };
-
         CliqueProtocol {
             transactions: vec![],
-            voting_information: voting_info,
             signer_index: own_signer_index,
             signer_count: own_signer_count,
             genesis,
@@ -163,14 +151,16 @@ impl CliqueProtocol {
     }
 
     fn calculate_result(&self) -> VotingInformation {
-        let mut sum_cipher_visitor = SumCipherTextVisitor::new(self.voting_information.cipher_text.clone());
+        let mut sum_cipher_visitor = SumCipherTextVisitor::new(self.genesis.public_key.clone());
         let longest_path_walker = LongestPathWalker::new();
 
         longest_path_walker.walk_chain(&self.chain, &mut sum_cipher_visitor);
 
+        let result = sum_cipher_visitor.get_votes();
+
         VotingInformation {
-            cipher_text: sum_cipher_visitor.sum_cipher_text,
-            total_votes: sum_cipher_visitor.total_votes,
+            cipher_text: result.1,
+            total_votes: result.0
         }
     }
 
@@ -189,7 +179,7 @@ impl CliqueProtocol {
         return true;
     }
 
-    pub fn create_current_block(&mut self) -> Block {
+    pub fn create_current_block_and_reset_transaction_buffer(&mut self) -> Block {
         let current_block = self.chain.get_current_block();
 
         let block = Block::new(
@@ -201,6 +191,10 @@ impl CliqueProtocol {
         self.transactions = vec![];
 
         block
+    }
+
+    pub fn reset_transaction_buffer(&mut self) {
+        self.transactions = vec![];
     }
 
     /// Sign a block with all current known transactions.
@@ -250,18 +244,22 @@ impl ProtocolHandler for CliqueProtocol {
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
 
+                // Scenario is as follows:
+                // - I am co-leader
+                // - I receive a transaction -> add transaction to buffer
+                // - I receive a block from leader containing that transaction
+                // - I'm the leader now, and still have the transaction im my buffer
+                // - I create a block containing that transaction again.
+                // => two different blocks with the same transaction in them
+
                 // check whether we have the contained transaction already in our buffer
-                // TODO: this might be entirely wrong if our buffer is currently empty -> we are re-adding transactions again
-//                let mut non_duplicate_trxs = vec![];
-//                for transaction in block.data.transactions.clone() {
-//                    if ! self.transactions.contains(&transaction.clone()) {
-//                        non_duplicate_trxs.push(transaction.clone());
-//                    }
-//                }
-//
-//                // TODO: is it wrong to remove all transactions from the buffer?
-//                //       -> they are already broadcast to other nodes, possibly the leader
-//                self.transactions = non_duplicate_trxs;
+                // and if so, remove it
+                for transaction in block.data.transactions.clone() {
+                    self.transactions.retain(|ref trx| {
+                       // remove all where false is returned
+                        ! (transaction.identifier.clone() == trx.identifier.clone())
+                    });
+                }
 
                 let is_added = self.chain.add_block(block);
 

@@ -157,7 +157,7 @@ mod chain_walker_test {
     use ::chain::chain_visitor::{HeaviestBlockVisitor, SumCipherTextVisitor};
     use ::chain::chain_walker::{ChainWalker, HeaviestBlockWalker, LongestPathWalker};
     use ::chain::transaction::Transaction;
-    use crypto_rs::el_gamal::encryption::{encrypt, PublicKey};
+    use crypto_rs::el_gamal::encryption::{PublicKey};
     use crypto_rs::el_gamal::ciphertext::CipherText;
     use crypto_rs::el_gamal::membership_proof::MembershipProof;
     use crypto_rs::arithmetic::mod_int::ModInt;
@@ -331,13 +331,13 @@ mod chain_walker_test {
             }
         });
 
-        let cipher_text = encrypt(&public_key.clone(), ModInt::one());
-
-        let mut sum_cipher_text_visitor = SumCipherTextVisitor::new(cipher_text);
+        let mut sum_cipher_text_visitor = SumCipherTextVisitor::new(public_key);
         let longest_path_walker = LongestPathWalker::new();
         longest_path_walker.walk_chain(&chain, &mut sum_cipher_text_visitor);
 
-        assert_eq!(1, sum_cipher_text_visitor.total_votes);
+        let total_votes = sum_cipher_text_visitor.get_votes();
+
+        assert_eq!(1, total_votes.0);
     }
 
 }
