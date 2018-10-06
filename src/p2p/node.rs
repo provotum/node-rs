@@ -130,6 +130,8 @@ impl Node {
         });
     }
 
+    /// Start to listen for incoming RPC connections, i.e. connections from an end-user client.
+    /// Compared to `pub fn listen(&self)`, incoming messages may be handled a bit differently.
     pub fn listen_rpc(&self) {
         let rpc_listener = TcpListener::bind(&self.rpc_listen_address).unwrap();
         info!("Listening for incoming RPC connections on {:?}", rpc_listener.local_addr());
@@ -225,8 +227,8 @@ impl Node {
         });
     }
 
-    /// Send a Ping message to all known peers
-    pub fn connect(&mut self) {
+    /// Send a request for a copy of the blockchain to all known nodes.
+    pub fn request_chain_copy(&mut self) {
         // create a reference which we can share across threads
         let peers = Arc::clone(&self.peers);
 
@@ -261,6 +263,7 @@ impl Node {
         }
     }
 
+    /// Start the main loop to sign (aka. mint) blocks in the network.
     pub fn sign(&mut self) {
         let clique_protocol_handler = Arc::clone(&self.protocol);
         // create a reference which we can share across threads

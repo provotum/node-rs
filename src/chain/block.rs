@@ -5,6 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ::chain::transaction::Transaction;
 
+/// The content of a block.
+/// All contained fields are hashed and represent the identifier of the block.
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct BlockContent {
     pub parent: String,
@@ -12,6 +14,8 @@ pub struct BlockContent {
     pub transactions: Vec<Transaction>,
 }
 
+/// A block containing the identifier as well as its content, building
+/// up the identifier.
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub identifier: String,

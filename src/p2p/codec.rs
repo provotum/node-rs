@@ -1,11 +1,11 @@
 use ::chain::block::Block;
 use ::chain::chain::Chain;
 use ::chain::transaction::Transaction;
-use ::protocol::clique::VotingInformation;
+use ::protocol::clique::Tally;
 use serde_json;
 use std::str;
 
-// macro Deserialize, Serialize from serde_derive
+/// Messages used to communicate information between nodes.
 #[derive(Eq, PartialEq, Deserialize, Serialize, Clone, Debug)]
 pub enum Message {
     Ping,
@@ -24,7 +24,7 @@ pub enum Message {
     CloseVote,
     CloseVoteAccept,
     RequestTally,
-    RequestTallyPayload(VotingInformation),
+    RequestTallyPayload(Tally),
     None,
 }
 

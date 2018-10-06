@@ -105,7 +105,7 @@ fn main() {
             node.listen_rpc();
 
             if has_ping {
-                node.connect();
+                node.request_chain_copy();
             }
 
             if has_sign {

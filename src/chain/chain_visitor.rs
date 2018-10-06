@@ -50,6 +50,11 @@ impl ChainVisitor for HeaviestBlockVisitor {
     }
 }
 
+/// Sums up all votes contained in the transactions, after the voting has been opened
+/// and until it is closed again.
+///
+/// Expects to be walked from the bottom up of the chain
+/// to the root to work correctly.
 pub struct SumCipherTextVisitor {
     sum_cipher_text: CipherText,
     total_votes: usize,

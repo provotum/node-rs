@@ -43,8 +43,9 @@ pub struct CliqueProtocol {
     chain: Chain,
 }
 
+/// Holds the tally of the voting.
 #[derive(Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
-pub struct VotingInformation {
+pub struct Tally {
     pub total_votes: usize,
     pub cipher_text: CipherText,
 }
@@ -150,7 +151,7 @@ impl CliqueProtocol {
         }
     }
 
-    fn calculate_result(&self) -> VotingInformation {
+    fn calculate_result(&self) -> Tally {
         let mut sum_cipher_visitor = SumCipherTextVisitor::new(self.genesis.public_key.clone());
         let longest_path_walker = LongestPathWalker::new();
 
@@ -158,7 +159,7 @@ impl CliqueProtocol {
 
         let result = sum_cipher_visitor.get_votes();
 
-        VotingInformation {
+        Tally {
             cipher_text: result.1,
             total_votes: result.0
         }
