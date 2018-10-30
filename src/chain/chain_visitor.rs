@@ -5,6 +5,7 @@ use crypto_rs::el_gamal::additive::Operate;
 use crypto_rs::el_gamal::encryption::{PublicKey, encrypt};
 use crypto_rs::arithmetic::mod_int::ModInt;
 use num::Zero;
+use std::collections::HashSet;
 
 pub trait ChainVisitor {
     /// Visit a particular block
@@ -60,7 +61,8 @@ pub struct SumCipherTextVisitor {
     total_votes: usize,
     zero_cipher_text: CipherText,
     is_voting_opened: bool,
-    is_voting_closed: bool
+    is_voting_closed: bool,
+    traversed_vote_idx: HashSet<usize>
 }
 
 impl SumCipherTextVisitor {
@@ -72,7 +74,8 @@ impl SumCipherTextVisitor {
             total_votes: 0,
             zero_cipher_text: cipher_text,
             is_voting_opened: false,
-            is_voting_closed: true
+            is_voting_closed: true,
+            traversed_vote_idx: HashSet::new()
         }
     }
 
@@ -117,9 +120,17 @@ impl ChainVisitor for SumCipherTextVisitor {
                     if ! self.is_voting_closed {
                         warn!("Skipping to count vote in transaction {:?} as voting was not yet closed", transaction.identifier.clone());
                     } else {
-                        info!("Counting vote in transaction {:?}", transaction.identifier.clone());
-                        self.sum_cipher_text = self.sum_cipher_text.clone().operate(transaction.data.unwrap().cipher_text);
-                        self.total_votes = self.total_votes + 1;
+
+                        // check whether we already counted a vote for the same voter
+                        let trx_data = transaction.data.unwrap();
+                        if self.traversed_vote_idx.contains(&trx_data.voter_idx) {
+                            info!("Voter with index {:?} has voted already. Ignoring transaction {:?}", trx_data.voter_idx, transaction.identifier.clone())
+                        } else {
+                            info!("Counting vote in transaction {:?}", transaction.identifier.clone());
+                            self.sum_cipher_text = self.sum_cipher_text.clone().operate(trx_data.cipher_text);
+                            self.total_votes = self.total_votes + 1;
+                            self.traversed_vote_idx.insert(trx_data.voter_idx);
+                        }
                     }
                 }
             }
