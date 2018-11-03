@@ -353,7 +353,11 @@ impl ProtocolHandler for CliqueProtocol {
                 Some((Message::RequestTallyPayload(final_tally), Message::None))
             }
             Message::RequestTallyPayload(_) => None,
-            Message::FindTransaction(_) => None,
+            Message::FindTransaction(identifier) => {
+                let found_trx = self.find_transaction(identifier);
+
+                Some((Message::FindTransactionResponse(found_trx), Message::None))
+            },
             Message::FindTransactionResponse(_) => None
         }
     }
