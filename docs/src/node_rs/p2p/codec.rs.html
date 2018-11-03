@@ -133,6 +133,8 @@
 <span id="76">76</span>
 <span id="77">77</span>
 <span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">block</span>::<span class="ident">Block</span>;
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">chain</span>::<span class="ident">Chain</span>;
@@ -147,7 +149,7 @@
     <span class="ident">Ping</span>,
     <span class="ident">Pong</span>,
     <span class="ident">TransactionPayload</span>(<span class="ident">Transaction</span>),
-    <span class="ident">TransactionAccept</span>,
+    <span class="ident">TransactionAccept</span>(<span class="ident">String</span>),
     <span class="ident">BlockRequest</span>(<span class="ident">String</span>),
     <span class="ident">BlockPayload</span>(<span class="ident">Block</span>),
     <span class="ident">BlockAccept</span>,
@@ -161,6 +163,8 @@
     <span class="ident">CloseVoteAccept</span>,
     <span class="ident">RequestTally</span>,
     <span class="ident">RequestTallyPayload</span>(<span class="ident">Tally</span>),
+    <span class="ident">FindTransaction</span>(<span class="ident">String</span>),
+    <span class="ident">FindTransactionResponse</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span>),
     <span class="prelude-val">None</span>,
 }
 

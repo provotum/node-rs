@@ -398,10 +398,27 @@
 <span id="341">341</span>
 <span id="342">342</span>
 <span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">block</span>::{<span class="ident">Block</span>};
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">chain</span>::<span class="ident">Chain</span>;
-<span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">chain_visitor</span>::<span class="ident">SumCipherTextVisitor</span>;
+<span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">chain_visitor</span>::{<span class="ident">FindTransactionVisitor</span>, <span class="ident">SumCipherTextVisitor</span>};
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">chain_walker</span>::{<span class="ident">ChainWalker</span>, <span class="ident">LongestPathWalker</span>};
 <span class="kw">use</span> ::<span class="ident">chain</span>::<span class="ident">transaction</span>::<span class="ident">Transaction</span>;
 <span class="kw">use</span> ::<span class="ident">config</span>::<span class="ident">genesis</span>::<span class="ident">Genesis</span>;
@@ -566,6 +583,15 @@
         }
     }
 
+    <span class="kw">fn</span> <span class="ident">find_transaction</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">trx_identifier</span>: <span class="ident">String</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Transaction</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">find_trx_visitor</span> <span class="op">=</span> <span class="ident">FindTransactionVisitor</span>::<span class="ident">new</span>(<span class="ident">trx_identifier</span>);
+        <span class="kw">let</span> <span class="ident">longest_path_walker</span> <span class="op">=</span> <span class="ident">LongestPathWalker</span>::<span class="ident">new</span>();
+
+        <span class="ident">longest_path_walker</span>.<span class="ident">walk_chain</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">chain</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">find_trx_visitor</span>);
+
+        <span class="ident">find_trx_visitor</span>.<span class="ident">get_found_transaction</span>()
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_block_period_over</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
         <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">SystemTime</span>::<span class="ident">now</span>();
         <span class="kw">let</span> <span class="ident">now_unix</span> <span class="op">=</span> <span class="ident">now</span>.<span class="ident">duration_since</span>(<span class="ident">UNIX_EPOCH</span>).<span class="ident">expect</span>(<span class="string">&quot;Time went backwards&quot;</span>).<span class="ident">as_secs</span>();
@@ -638,11 +664,11 @@
                 <span class="comment">// if we received the transaction from another node</span>
                 <span class="comment">// there is no need to broadcast it again, as this</span>
                 <span class="comment">// was the task of the node from which we&#39;ve received it.</span>
-                <span class="self">self</span>.<span class="ident">on_transaction_receive</span>(<span class="ident">transaction</span>);
+                <span class="self">self</span>.<span class="ident">on_transaction_receive</span>(<span class="ident">transaction</span>.<span class="ident">clone</span>());
 
-                <span class="ident">Message</span>::<span class="ident">TransactionAccept</span>
+                <span class="ident">Message</span>::<span class="ident">TransactionAccept</span>(<span class="ident">transaction</span>.<span class="ident">identifier</span>.<span class="ident">clone</span>())
             }
-            <span class="ident">Message</span>::<span class="ident">TransactionAccept</span> <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>,
+            <span class="ident">Message</span>::<span class="ident">TransactionAccept</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">BlockRequest</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Not yet implemented: Return block requested&quot;</span>),
             <span class="ident">Message</span>::<span class="ident">BlockPayload</span>(<span class="ident">block</span>) <span class="op">=&gt;</span> {
 
@@ -694,6 +720,12 @@
             <span class="ident">Message</span>::<span class="ident">CloseVoteAccept</span> <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">RequestTally</span> <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">RequestTallyPayload</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>,
+            <span class="ident">Message</span>::<span class="ident">FindTransaction</span>(<span class="ident">identifier</span>) <span class="op">=&gt;</span> {
+                <span class="kw">let</span> <span class="ident">found_trx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">find_transaction</span>(<span class="ident">identifier</span>);
+
+                <span class="ident">Message</span>::<span class="ident">FindTransactionResponse</span>(<span class="ident">found_trx</span>)
+            },
+            <span class="ident">Message</span>::<span class="ident">FindTransactionResponse</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="ident">Message</span>::<span class="prelude-val">None</span>
         }
     }
 
@@ -709,9 +741,9 @@
                 <span class="comment">// notify all other nodes in the network about this new transaction.</span>
                 <span class="self">self</span>.<span class="ident">on_transaction_receive</span>(<span class="ident">transaction</span>.<span class="ident">clone</span>());
 
-                <span class="prelude-val">Some</span>((<span class="ident">Message</span>::<span class="ident">TransactionAccept</span>, <span class="ident">Message</span>::<span class="ident">TransactionPayload</span>(<span class="ident">transaction</span>)))
+                <span class="prelude-val">Some</span>((<span class="ident">Message</span>::<span class="ident">TransactionAccept</span>(<span class="ident">transaction</span>.<span class="ident">identifier</span>.<span class="ident">clone</span>()), <span class="ident">Message</span>::<span class="ident">TransactionPayload</span>(<span class="ident">transaction</span>)))
             }
-            <span class="ident">Message</span>::<span class="ident">TransactionAccept</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">Message</span>::<span class="ident">TransactionAccept</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">BlockRequest</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">BlockPayload</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
             <span class="ident">Message</span>::<span class="ident">BlockAccept</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
@@ -739,6 +771,8 @@
                 <span class="prelude-val">Some</span>((<span class="ident">Message</span>::<span class="ident">RequestTallyPayload</span>(<span class="ident">final_tally</span>), <span class="ident">Message</span>::<span class="prelude-val">None</span>))
             }
             <span class="ident">Message</span>::<span class="ident">RequestTallyPayload</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">Message</span>::<span class="ident">FindTransaction</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="ident">Message</span>::<span class="ident">FindTransactionResponse</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="prelude-val">None</span>
         }
     }
 }</pre>
