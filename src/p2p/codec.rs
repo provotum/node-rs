@@ -11,7 +11,7 @@ pub enum Message {
     Ping,
     Pong,
     TransactionPayload(Transaction),
-    TransactionAccept,
+    TransactionAccept(String),
     BlockRequest(String),
     BlockPayload(Block),
     BlockAccept,
@@ -25,6 +25,8 @@ pub enum Message {
     CloseVoteAccept,
     RequestTally,
     RequestTallyPayload(Tally),
+    FindTransaction(String),
+    FindTransactionResponse(Option<Transaction>),
     None,
 }
 

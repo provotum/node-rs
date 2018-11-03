@@ -1,6 +1,6 @@
 use ::chain::block::{Block};
 use ::chain::chain::Chain;
-use ::chain::chain_visitor::SumCipherTextVisitor;
+use ::chain::chain_visitor::{FindTransactionVisitor, SumCipherTextVisitor};
 use ::chain::chain_walker::{ChainWalker, LongestPathWalker};
 use ::chain::transaction::Transaction;
 use ::config::genesis::Genesis;
@@ -165,6 +165,15 @@ impl CliqueProtocol {
         }
     }
 
+    fn find_transaction(&self, trx_identifier: String) -> Option<Transaction> {
+        let mut find_trx_visitor = FindTransactionVisitor::new(trx_identifier);
+        let longest_path_walker = LongestPathWalker::new();
+
+        longest_path_walker.walk_chain(&self.chain, &mut find_trx_visitor);
+
+        find_trx_visitor.get_found_transaction()
+    }
+
     pub fn is_block_period_over(&self) -> bool {
         let now = SystemTime::now();
         let now_unix = now.duration_since(UNIX_EPOCH).expect("Time went backwards").as_secs();
@@ -237,11 +246,11 @@ impl ProtocolHandler for CliqueProtocol {
                 // if we received the transaction from another node
                 // there is no need to broadcast it again, as this
                 // was the task of the node from which we've received it.
-                self.on_transaction_receive(transaction);
+                self.on_transaction_receive(transaction.clone());
 
-                Message::TransactionAccept
+                Message::TransactionAccept(transaction.identifier.clone())
             }
-            Message::TransactionAccept => Message::None,
+            Message::TransactionAccept(_) => Message::None,
             Message::BlockRequest(_) => unimplemented!("Not yet implemented: Return block requested"),
             Message::BlockPayload(block) => {
 
@@ -293,6 +302,12 @@ impl ProtocolHandler for CliqueProtocol {
             Message::CloseVoteAccept => Message::None,
             Message::RequestTally => Message::None,
             Message::RequestTallyPayload(_) => Message::None,
+            Message::FindTransaction(identifier) => {
+                let found_trx = self.find_transaction(identifier);
+
+                Message::FindTransactionResponse(found_trx)
+            },
+            Message::FindTransactionResponse(_) => Message::None
         }
     }
 
@@ -308,9 +323,9 @@ impl ProtocolHandler for CliqueProtocol {
                 // notify all other nodes in the network about this new transaction.
                 self.on_transaction_receive(transaction.clone());
 
-                Some((Message::TransactionAccept, Message::TransactionPayload(transaction)))
+                Some((Message::TransactionAccept(transaction.identifier.clone()), Message::TransactionPayload(transaction)))
             }
-            Message::TransactionAccept => None,
+            Message::TransactionAccept(_) => None,
             Message::BlockRequest(_) => None,
             Message::BlockPayload(_) => None,
             Message::BlockAccept => None,
@@ -338,6 +353,8 @@ impl ProtocolHandler for CliqueProtocol {
                 Some((Message::RequestTallyPayload(final_tally), Message::None))
             }
             Message::RequestTallyPayload(_) => None,
+            Message::FindTransaction(_) => None,
+            Message::FindTransactionResponse(_) => None
         }
     }
 }
